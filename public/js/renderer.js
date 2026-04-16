@@ -41,6 +41,10 @@ class TowerRenderer {
     this.pitch = -0.2;
     this.targetPitch = -0.2;
 
+    this.isDragging = false;
+    this.lastPointerX = 0;
+    this.dragSensitivity = 0.004;
+
     this.shakeStrength = 0;
     this.shakeUntil = 0;
     this.animationId = null;
@@ -48,6 +52,7 @@ class TowerRenderer {
 
     this._createMaterials();
     this._setupLights();
+    this._setupPointerControls();
     this._onResize = this._onResize.bind(this);
     window.addEventListener('resize', this._onResize);
   }
@@ -98,6 +103,52 @@ class TowerRenderer {
     this.quakeLight = new THREE.PointLight(0xb84334, 0, 20, 2);
     this.quakeLight.position.set(0, 2.4, 0);
     this.scene.add(this.quakeLight);
+  }
+
+  _setupPointerControls() {
+    const onPointerDown = (event) => {
+      this.isDragging = true;
+      this.lastPointerX = event.touches ? event.touches[0].clientX : event.clientX;
+    };
+
+    const onPointerMove = (event) => {
+      if (!this.isDragging) return;
+      const clientX = event.touches ? event.touches[0].clientX : event.clientX;
+      const deltaX = clientX - this.lastPointerX;
+      this.lastPointerX = clientX;
+      this.targetYaw -= deltaX * this.dragSensitivity;
+    };
+
+    const onPointerUp = () => {
+      this.isDragging = false;
+    };
+
+    this.canvas.addEventListener('mousedown', onPointerDown);
+    window.addEventListener('mousemove', onPointerMove);
+    window.addEventListener('mouseup', onPointerUp);
+
+    this.canvas.addEventListener('touchstart', (event) => {
+      event.preventDefault();
+      onPointerDown(event);
+    }, { passive: false });
+    window.addEventListener('touchmove', (event) => {
+      if (this.isDragging) event.preventDefault();
+      onPointerMove(event);
+    }, { passive: false });
+    window.addEventListener('touchend', onPointerUp);
+  }
+
+  getCameraFacing() {
+    let yaw = this.targetYaw % (Math.PI * 2);
+    if (yaw < 0) yaw += Math.PI * 2;
+    // 0 → facing=0, -π/2 (or 3π/2) → facing=1, π → facing=2, π/2 → facing=3
+    // Snap to nearest cardinal: divide circle into 4 sectors
+    const sector = Math.round(yaw / (Math.PI / 2)) % 4;
+    return [0, 3, 2, 1][sector];
+  }
+
+  rotateCamera(deltaRadians) {
+    this.targetYaw += deltaRadians;
   }
 
   buildFloor(floorData) {
@@ -242,9 +293,9 @@ class TowerRenderer {
     this.playerState = { ...player };
     const world = this.cellToWorld(player.x, player.y);
     this.playerTarget.set(world.x, this.eyeHeight, world.z);
-    this.targetYaw = [0, -Math.PI / 2, Math.PI, Math.PI / 2][player.facing] || 0;
     this.targetPitch = player.lookMode === 'up' ? 0.96 : -0.28;
     if (instant) {
+      this.targetYaw = [0, -Math.PI / 2, Math.PI, Math.PI / 2][player.facing] || 0;
       this.playerRender.copy(this.playerTarget);
       this.yaw = this.targetYaw;
       this.pitch = this.targetPitch;
@@ -255,7 +306,7 @@ class TowerRenderer {
     this.snapshot = snapshot;
   }
 
-  getMoveDelta(relativeDirection, facing = this.playerState.facing) {
+  getMoveDelta(relativeDirection, facing = this.getCameraFacing()) {
     const vectors = [
       { x: 0, y: -1 },
       { x: 1, y: 0 },
