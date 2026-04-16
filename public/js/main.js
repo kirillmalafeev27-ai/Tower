@@ -1,6 +1,7 @@
 const PLAYER_NAME_KEY = 'turm_player_name';
 const RUN_NAME_KEY = 'turm_run_name';
 const TUTORIAL_SEEN_KEY = 'turm_tutorial_seen';
+const LANG_LEVEL_KEY = 'turm_lang_level';
 
 const game = new Game();
 
@@ -18,12 +19,14 @@ document.addEventListener('DOMContentLoaded', () => {
     bonusSlots: Array.from(document.querySelectorAll('.bonus-slot')),
     tutorialOverlay: document.getElementById('tutorial-overlay'),
     tutorialClose: document.getElementById('tutorial-close'),
+    levelButtons: Array.from(document.querySelectorAll('.level-btn')),
     startButton: document.getElementById('start-btn')
   };
 
   let selectedLexical = null;
   let selectedGrammar = null;
   let selectedSlotIndex = null;
+  let selectedLevel = localStorage.getItem(LANG_LEVEL_KEY) || DEFAULT_CEFR_LEVEL;
   const slotAssignments = Array(BONUS_SLOTS.length).fill(null);
   let pendingTutorialCallback = null;
 
@@ -33,6 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
   renderLexicalGrid();
   renderSlots();
   renderGrammarPicker();
+  renderLevelButtons();
   updateStartButton();
   showStep(1);
 
@@ -60,6 +64,13 @@ document.addEventListener('DOMContentLoaded', () => {
       event.preventDefault();
       showStep(3);
     }
+  });
+
+  ui.levelButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      selectedLevel = button.dataset.level || DEFAULT_CEFR_LEVEL;
+      renderLevelButtons();
+    });
   });
 
   ui.bonusSlots.forEach((slotElement, index) => {
@@ -269,6 +280,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  function renderLevelButtons() {
+    ui.levelButtons.forEach((button) => {
+      button.classList.toggle('active', button.dataset.level === selectedLevel);
+    });
+  }
+
   function renderGrammarPicker() {
     ui.grammarPicker.innerHTML = '';
     const usedTopics = slotAssignments.filter(Boolean);
@@ -334,11 +351,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     localStorage.setItem(PLAYER_NAME_KEY, playerName);
     localStorage.setItem(RUN_NAME_KEY, runName);
+    localStorage.setItem(LANG_LEVEL_KEY, selectedLevel);
 
     return {
       playerName,
       runName,
-      langLevel: DEFAULT_CEFR_LEVEL,
+      langLevel: selectedLevel,
       lexicalTopic: selectedLexical,
       level: 1,
       slotConfigs: BONUS_SLOTS.map((slotDef, index) => ({

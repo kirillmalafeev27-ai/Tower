@@ -258,11 +258,27 @@ class TowerRenderer {
     this.mossMaterial = new THREE.MeshStandardMaterial({ color: 0x23311f, roughness: 0.82, metalness: 0.02, transparent: true, opacity: 0.68, side: THREE.DoubleSide });
     this.torchBracketMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: ironMap, roughness: 0.28, metalness: 0.76 });
     this.torchFlameMaterial = new THREE.MeshBasicMaterial({ color: 0xffa24a });
-    this.monsterMaterial = new THREE.MeshStandardMaterial({ color: 0x1a130f, emissive: 0x140904, roughness: 0.54, metalness: 0.05 });
-    this.monsterWetMaterial = new THREE.MeshStandardMaterial({ color: 0x24110d, emissive: 0x1b0705, roughness: 0.36, metalness: 0.03 });
-    this.monsterBoneMaterial = new THREE.MeshStandardMaterial({ color: 0xbca78f, emissive: 0x24150f, roughness: 0.58, metalness: 0.02 });
-    this.monsterClawMaterial = new THREE.MeshStandardMaterial({ color: 0x65564d, emissive: 0x140f0b, roughness: 0.26, metalness: 0.12 });
-    this.monsterEyeMaterial = new THREE.MeshStandardMaterial({ color: 0xffb16a, emissive: 0xff8b3d, roughness: 0.18, metalness: 0.05 });
+    this.monsterMaterial = new THREE.MeshPhysicalMaterial({
+      color: 0x18231d,
+      emissive: 0x07100c,
+      roughness: 0.42,
+      metalness: 0.02,
+      clearcoat: 0.72,
+      clearcoatRoughness: 0.22,
+      reflectivity: 0.32
+    });
+    this.monsterWetMaterial = new THREE.MeshPhysicalMaterial({
+      color: 0x274438,
+      emissive: 0x0a1712,
+      roughness: 0.12,
+      metalness: 0.01,
+      clearcoat: 1,
+      clearcoatRoughness: 0.04,
+      reflectivity: 0.48
+    });
+    this.monsterBoneMaterial = new THREE.MeshStandardMaterial({ color: 0xc2b39c, emissive: 0x201711, roughness: 0.6, metalness: 0.02 });
+    this.monsterClawMaterial = new THREE.MeshStandardMaterial({ color: 0x53665e, emissive: 0x0d1612, roughness: 0.2, metalness: 0.08 });
+    this.monsterEyeMaterial = new THREE.MeshStandardMaterial({ color: 0xa7efc0, emissive: 0x56c48e, roughness: 0.12, metalness: 0.04 });
 
     this.boxMaterials = {
       normal: new THREE.MeshStandardMaterial({ color: 0xffffff, map: normalCrateMap, roughness: 0.54, metalness: 0.06 }),
@@ -503,20 +519,72 @@ class TowerRenderer {
 
   _buildHatches() {
     this.floorData.hatches.forEach((hatch) => {
+      const key = tileKey(hatch.x, hatch.y);
       const world = this.cellToWorld(hatch.x, hatch.y);
+      const floorNode = this.floorNodes[key];
+      const floorTop = floorNode
+        ? floorNode.position.y + ((floorNode.geometry?.parameters?.height || 0.2) * 0.5)
+        : 0.08;
       const group = new THREE.Group();
-      const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.62, 0.06, 28), this.hatchRingMaterial.clone());
-      const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.08, 24), this.hatchRingMaterial.clone());
-      const hole = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.46, 0.14, 24), this.hatchVoidMaterial.clone());
-      ring.position.y = 0.02;
-      lid.position.set(0, 0.06, 0);
-      hole.position.set(0, -0.04, 0);
-      ring.receiveShadow = true;
-      lid.castShadow = true;
-      group.position.set(world.x, 0, world.z);
-      group.add(ring, hole, lid);
+      const apron = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.86, 0.86, 0.04, 32),
+        this.floorInsetMaterial.clone()
+      );
+      const ringMaterial = this.hatchRingMaterial.clone();
+      ringMaterial.roughness = 0.24;
+      ringMaterial.metalness = 0.76;
+      const innerRingMaterial = this.torchBracketMaterial.clone();
+      innerRingMaterial.roughness = 0.18;
+      innerRingMaterial.metalness = 0.82;
+      const lidMaterial = this.hatchRingMaterial.clone();
+      lidMaterial.color.offsetHSL(0, -0.02, -0.14);
+      lidMaterial.roughness = 0.28;
+      lidMaterial.metalness = 0.7;
+
+      const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.76, 0.76, 0.08, 32), ringMaterial);
+      const lip = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.62, 0.05, 28), innerRingMaterial);
+      const hole = new THREE.Mesh(new THREE.CylinderGeometry(0.56, 0.56, 0.26, 28), this.hatchVoidMaterial.clone());
+      const lidPivot = new THREE.Group();
+      const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.58, 0.58, 0.09, 28), lidMaterial);
+      const braceA = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.06, 0.12), innerRingMaterial.clone());
+      const braceB = braceA.clone();
+      const handleBase = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.04, 14), innerRingMaterial.clone());
+      const handle = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.028, 8, 18), ringMaterial.clone());
+
+      apron.position.y = 0.01;
+      ring.position.y = 0.05;
+      lip.position.y = 0.085;
+      hole.position.y = -0.07;
+      hole.visible = hatch.opened;
+      lidPivot.position.set(0, 0.11, 0);
+      braceA.position.y = 0.05;
+      braceB.position.y = 0.05;
+      braceB.rotation.y = Math.PI / 2;
+      handleBase.position.y = 0.085;
+      handle.position.y = 0.15;
+      handle.rotation.x = Math.PI / 2;
+
+      for (let index = 0; index < 6; index += 1) {
+        const bolt = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.03, 0.03, 0.03, 10),
+          innerRingMaterial.clone()
+        );
+        const angle = (Math.PI * 2 * index) / 6;
+        bolt.position.set(Math.cos(angle) * 0.44, 0.075, Math.sin(angle) * 0.44);
+        lidPivot.add(bolt);
+      }
+
+      apron.receiveShadow = true;
+      [ring, lip, lid, braceA, braceB, handleBase, handle].forEach((mesh) => {
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+      });
+
+      lidPivot.add(lid, braceA, braceB, handleBase, handle);
+      group.position.set(world.x, floorTop + 0.01, world.z);
+      group.add(apron, hole, ring, lip, lidPivot);
       this.root.add(group);
-      this.hatchNodes[tileKey(hatch.x, hatch.y)] = { group, lid, hole };
+      this.hatchNodes[key] = { group, lid: lidPivot, hole };
     });
   }
 
@@ -555,6 +623,7 @@ class TowerRenderer {
         boxKey: box.key,
         boxX: box.x,
         boxY: box.y,
+        boxHeight: dims[1],
         emissiveMaterials,
         targetHalfSize: {
           x: dims[0] * 0.68,
@@ -1185,170 +1254,124 @@ class TowerRenderer {
     this.monsterPulseMaterials = [];
     this.monsterEyeNodes = [];
     this.monsterTendrilNodes = [];
+    this.monsterJawPivot = null;
 
     const materials = {
-      flesh: this._registerMonsterMaterial(this.monsterMaterial.clone(), 1),
-      fleshDark: this._registerMonsterMaterial(this.monsterMaterial.clone(), 0.82),
-      wet: this._registerMonsterMaterial(this.monsterWetMaterial.clone(), 1.16),
-      bone: this._registerMonsterMaterial(this.monsterBoneMaterial.clone(), 0.52),
-      claw: this._registerMonsterMaterial(this.monsterClawMaterial.clone(), 0.44),
-      eyeHot: this._registerMonsterMaterial(this.monsterEyeMaterial.clone(), 1.8),
-      eyeDim: this._registerMonsterMaterial(this.monsterEyeMaterial.clone(), 1.35)
+      flesh: this._registerMonsterMaterial(this.monsterMaterial.clone(), 0.92),
+      fleshDark: this._registerMonsterMaterial(this.monsterMaterial.clone(), 0.72),
+      wet: this._registerMonsterMaterial(this.monsterWetMaterial.clone(), 1.2),
+      under: this._registerMonsterMaterial(this.monsterWetMaterial.clone(), 0.84),
+      bone: this._registerMonsterMaterial(this.monsterBoneMaterial.clone(), 0.42),
+      eyeHot: this._registerMonsterMaterial(this.monsterEyeMaterial.clone(), 1.55),
+      eyeDim: this._registerMonsterMaterial(this.monsterEyeMaterial.clone(), 1.18)
     };
 
-    materials.fleshDark.color.offsetHSL(0, -0.02, -0.08);
-    materials.fleshDark.emissive.offsetHSL(0, 0, -0.04);
-    materials.bone.color.offsetHSL(0.02, -0.08, 0.04);
-    materials.eyeDim.color.offsetHSL(-0.01, 0.04, -0.05);
+    materials.fleshDark.color.offsetHSL(0, -0.06, -0.08);
+    materials.under.color.offsetHSL(0, -0.02, -0.12);
+    materials.bone.color.offsetHSL(0.02, -0.08, 0.02);
+    materials.eyeDim.color.offsetHSL(-0.02, -0.03, -0.08);
 
-    const torso = new THREE.Mesh(this._createMonsterTorsoGeometry(1), materials.flesh);
-    torso.position.set(0.02, 0.1, 0.06);
-    torso.scale.set(0.96, 1.08, 1);
-    torso.rotation.z = 0.12;
-    torso.rotation.y = 0.08;
+    const mantle = new THREE.Mesh(
+      this._warpOrganicGeometry(new THREE.SphereGeometry(0.76, 18, 14), 0.11, 801),
+      materials.flesh
+    );
+    mantle.position.set(0, 0.08, -0.08);
+    mantle.scale.set(1.2, 0.34, 1.08);
 
-    const abdomen = new THREE.Mesh(
-      this._warpOrganicGeometry(new THREE.SphereGeometry(0.74, 16, 14), 0.14, 19),
+    const body = new THREE.Mesh(
+      this._warpOrganicGeometry(new THREE.SphereGeometry(0.64, 18, 14), 0.16, 811),
       materials.wet
     );
-    abdomen.position.set(0.04, -0.34, 0.34);
-    abdomen.scale.set(1.04, 0.82, 1.2);
+    body.position.set(0, -0.08, 0.08);
+    body.scale.set(1.04, 0.62, 1.28);
 
-    const shoulderMass = new THREE.Mesh(
-      this._warpOrganicGeometry(new THREE.SphereGeometry(0.56, 14, 12), 0.11, 23),
+    const anchorPlate = new THREE.Mesh(
+      this._warpOrganicGeometry(new THREE.CylinderGeometry(0.44, 0.58, 0.24, 18), 0.06, 819),
       materials.fleshDark
     );
-    shoulderMass.position.set(-0.12, 0.82, 0.06);
-    shoulderMass.scale.set(1.3, 0.8, 1.12);
-    shoulderMass.rotation.z = -0.24;
+    anchorPlate.position.set(0, 0.26, -0.2);
+    anchorPlate.scale.set(1.18, 0.34, 1.02);
 
-    const neck = new THREE.Mesh(
-      this._warpOrganicGeometry(new THREE.CylinderGeometry(0.18, 0.28, 0.72, 10), 0.08, 29),
+    const throat = new THREE.Mesh(
+      this._warpOrganicGeometry(new THREE.CylinderGeometry(0.12, 0.24, 0.56, 12), 0.08, 829),
       materials.wet
     );
-    neck.position.set(0.06, 1.12, 0.42);
-    neck.rotation.z = 0.18;
-    neck.rotation.x = -0.36;
+    throat.position.set(0, -0.18, 0.52);
+    throat.rotation.x = -0.86;
 
-    const headPivot = new THREE.Group();
-    headPivot.position.set(0.12, 1.32, 0.72);
-    headPivot.rotation.set(-0.34, 0.14, -0.16);
+    const mawPivot = new THREE.Group();
+    mawPivot.position.set(0, -0.28, 0.76);
+    mawPivot.userData.baseRotationX = 0.08;
+    mawPivot.rotation.x = mawPivot.userData.baseRotationX;
 
-    const skull = new THREE.Mesh(this._createMonsterHeadGeometry(31), materials.fleshDark);
-    skull.scale.set(0.9, 1.08, 1.24);
-
-    const cheekGrowth = new THREE.Mesh(
-      this._warpOrganicGeometry(new THREE.SphereGeometry(0.26, 12, 10), 0.09, 37),
-      materials.wet
+    const mawRing = new THREE.Mesh(
+      this._warpOrganicGeometry(new THREE.TorusGeometry(0.22, 0.07, 10, 18), 0.04, 839),
+      materials.fleshDark
     );
-    cheekGrowth.position.set(-0.26, -0.08, 0.2);
-    cheekGrowth.scale.set(1.2, 0.7, 1.4);
+    mawRing.rotation.x = Math.PI / 2;
+    mawRing.scale.set(1.08, 0.88, 1);
 
-    const horn = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.76, 6), materials.bone);
-    horn.position.set(-0.14, 0.68, -0.08);
-    horn.rotation.x = -0.58;
-    horn.rotation.z = -0.44;
+    const mawInner = new THREE.Mesh(
+      this._warpOrganicGeometry(new THREE.CylinderGeometry(0.14, 0.22, 0.22, 16, 1, true), 0.03, 847),
+      materials.under
+    );
+    mawInner.rotation.x = Math.PI / 2;
+    mawInner.position.z = 0.02;
 
-    const browSpine = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.5, 5), materials.bone);
-    browSpine.position.set(0.18, 0.32, 0.44);
-    browSpine.rotation.x = -1.24;
-    browSpine.rotation.z = 0.22;
-
-    const jawPivot = new THREE.Group();
-    jawPivot.position.set(0, -0.02, 0.54);
-    jawPivot.userData.baseRotationX = 0.16;
-    jawPivot.rotation.x = jawPivot.userData.baseRotationX;
-
-    const jaw = new THREE.Mesh(this._createMonsterJawGeometry(41), materials.wet);
-    jaw.scale.set(1.08, 0.82, 1.36);
-    jaw.position.set(0, -0.18, 0.12);
-    jawPivot.add(jaw);
-
-    for (let index = 0; index < 6; index += 1) {
-      const upperTooth = new THREE.Mesh(
-        new THREE.ConeGeometry(0.03 + index * 0.004, 0.18 + index * 0.015, 5),
+    for (let index = 0; index < 5; index += 1) {
+      const tooth = new THREE.Mesh(
+        new THREE.ConeGeometry(0.028 + index * 0.004, 0.12 + index * 0.015, 5),
         materials.bone
       );
-      upperTooth.position.set(-0.2 + index * 0.08, -0.26, 0.54 + index * 0.03);
-      upperTooth.rotation.x = Math.PI;
-      skull.add(upperTooth);
-
-      const lowerTooth = new THREE.Mesh(
-        new THREE.ConeGeometry(0.03 + index * 0.004, 0.18 + index * 0.015, 5),
-        materials.bone
-      );
-      lowerTooth.position.set(-0.22 + index * 0.088, -0.32, 0.28 + index * 0.035);
-      jawPivot.add(lowerTooth);
+      const angle = -0.52 + index * 0.26;
+      tooth.position.set(Math.sin(angle) * 0.17, -0.04 + index * 0.01, 0.12 + Math.cos(angle) * 0.1);
+      tooth.rotation.x = Math.PI * 0.62;
+      tooth.rotation.z = angle * 0.22;
+      mawPivot.add(tooth);
     }
 
     [
-      { x: -0.18, y: 0.06, z: 0.58, scale: 1.12, material: materials.eyeHot },
-      { x: 0.04, y: 0.12, z: 0.66, scale: 0.92, material: materials.eyeDim },
-      { x: 0.22, y: -0.04, z: 0.54, scale: 0.74, material: materials.eyeHot }
-    ].forEach((eyeConfig, index) => {
-      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.07 + index * 0.01, 10, 10), eyeConfig.material);
+      { x: -0.22, y: 0.02, z: 0.52, scale: 1.02, material: materials.eyeHot },
+      { x: -0.08, y: 0.1, z: 0.62, scale: 0.82, material: materials.eyeDim },
+      { x: 0.1, y: 0.08, z: 0.66, scale: 0.72, material: materials.eyeHot },
+      { x: 0.24, y: -0.02, z: 0.56, scale: 0.62, material: materials.eyeDim }
+    ].forEach((eyeConfig) => {
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 10), eyeConfig.material);
       eye.position.set(eyeConfig.x, eyeConfig.y, eyeConfig.z);
       eye.scale.setScalar(eyeConfig.scale);
       eye.userData.baseScale = eyeConfig.scale;
       this.monsterEyeNodes.push(eye);
-      skull.add(eye);
+      this.monsterGroup.add(eye);
     });
 
-    headPivot.add(skull, cheekGrowth, horn, browSpine, jawPivot);
-    this.monsterJawPivot = jawPivot;
-
-    for (let side = -1; side <= 1; side += 2) {
-      const arm = this._createMonsterArm(side, materials, 51 + side * 9);
-      const leg = this._createMonsterLeg(side, materials, 73 + side * 11);
-      this.monsterGroup.add(arm, leg);
-    }
-
-    [
-      { x: -0.42, y: 0.48, z: 0.24, rz: -0.36 },
-      { x: 0.42, y: 0.34, z: 0.18, rz: 0.34 },
-      { x: -0.18, y: 0.08, z: 0.38, rz: -0.08 },
-      { x: 0.18, y: -0.06, z: 0.44, rz: 0.1 }
-    ].forEach((rib, index) => {
-      const plate = new THREE.Mesh(
-        this._warpOrganicGeometry(new THREE.BoxGeometry(0.12, 0.46 + index * 0.08, 0.08), 0.04, 97 + index * 5),
-        materials.bone
-      );
-      plate.position.set(rib.x, rib.y, rib.z);
-      plate.rotation.z = rib.rz;
-      plate.rotation.x = -0.24;
-      this.monsterGroup.add(plate);
-    });
-
-    for (let index = 0; index < 6; index += 1) {
-      const spine = new THREE.Mesh(
-        new THREE.ConeGeometry(0.08 + index * 0.01, 0.44 + index * 0.07, 5),
-        materials.bone
-      );
-      spine.position.set(
-        (this._noise(index, 0, 109) - 0.5) * 0.3,
-        -0.16 + index * 0.34,
-        -0.08 - index * 0.1
-      );
-      spine.rotation.x = -0.44 - this._noise(index, 0, 113) * 0.4;
-      spine.rotation.z = (this._noise(index, 0, 127) - 0.5) * 0.3;
-      this.monsterGroup.add(spine);
-    }
-
-    for (let index = 0; index < 3; index += 1) {
-      const tendril = this._createMonsterTendril(131 + index * 17, materials.wet);
-      tendril.position.set(-0.34 + index * 0.34, 0.18 + index * 0.1, -0.22 - index * 0.12);
+    for (let index = 0; index < 4; index += 1) {
+      const tendril = this._createMonsterTendril(871 + index * 17, materials.wet);
+      tendril.scale.setScalar(0.52 + index * 0.05);
+      tendril.position.set(-0.28 + index * 0.18, -0.1 + index * 0.04, 0.18 + index * 0.12);
       this.monsterTendrilNodes.push(tendril);
       this.monsterGroup.add(tendril);
     }
 
-    const tailRoot = new THREE.Mesh(
-      this._warpOrganicGeometry(new THREE.CylinderGeometry(0.16, 0.22, 0.8, 10), 0.08, 181),
+    for (let index = 0; index < 3; index += 1) {
+      const droplet = new THREE.Mesh(
+        this._warpOrganicGeometry(new THREE.ConeGeometry(0.08 - index * 0.012, 0.34 + index * 0.06, 8), 0.04, 903 + index * 11),
+        materials.wet
+      );
+      droplet.position.set(-0.16 + index * 0.16, -0.3 - index * 0.04, -0.28 - index * 0.12);
+      droplet.rotation.x = Math.PI;
+      this.monsterGroup.add(droplet);
+    }
+
+    const tail = new THREE.Mesh(
+      this._warpOrganicGeometry(new THREE.CylinderGeometry(0.08, 0.16, 0.72, 12), 0.06, 941),
       materials.wet
     );
-    tailRoot.position.set(0, -0.92, -0.24);
-    tailRoot.rotation.x = 0.86;
+    tail.position.set(0, -0.08, -0.66);
+    tail.rotation.x = 1.04;
 
-    this.monsterGroup.add(torso, abdomen, shoulderMass, neck, headPivot, tailRoot);
+    mawPivot.add(mawRing, mawInner);
+    this.monsterJawPivot = mawPivot;
+    this.monsterGroup.add(anchorPlate, mantle, body, throat, mawPivot, tail);
     this.monsterGroup.traverse((child) => {
       if (child.isMesh) {
         child.castShadow = true;
@@ -1362,39 +1385,28 @@ class TowerRenderer {
 
   _buildQuestionCard() {
     const group = new THREE.Group();
-    const pedestal = new THREE.Mesh(
-      new THREE.BoxGeometry(this.cellSize * 0.72, 0.34, this.cellSize * 0.6),
+    const outerFrame = new THREE.Mesh(
+      new THREE.BoxGeometry(this.cellSize * 1.18, this.cellSize * 1.02, 0.14),
+      this.wallTrimMaterial.clone()
+    );
+    const plate = new THREE.Mesh(
+      new THREE.BoxGeometry(this.cellSize * 1.08, this.cellSize * 0.92, 0.07),
       this.floorEdgeMaterial.clone()
     );
-    pedestal.position.y = 0.18;
-
-    const collar = new THREE.Mesh(
-      new THREE.BoxGeometry(this.cellSize * 0.78, 0.08, this.cellSize * 0.68),
-      this.wallTrimMaterial.clone()
-    );
-    collar.position.y = 0.38;
-
-    const deckPivot = new THREE.Group();
-    deckPivot.position.set(0, 0.42, 0.04);
-    deckPivot.rotation.x = -0.24;
-
-    const deck = new THREE.Mesh(
-      new THREE.BoxGeometry(this.cellSize * 0.76, 0.12, this.cellSize * 0.82),
-      this.floorMaterial.clone()
-    );
-
-    const inset = new THREE.Mesh(
-      new THREE.BoxGeometry(this.cellSize * 0.7, 0.05, this.cellSize * 0.76),
+    const innerFrame = new THREE.Mesh(
+      new THREE.BoxGeometry(this.cellSize * 1.1, this.cellSize * 0.94, 0.05),
       this.floorInsetMaterial.clone()
     );
-    inset.position.y = 0.045;
-    inset.position.z = 0.02;
-
-    const frame = new THREE.Mesh(
-      new THREE.BoxGeometry(this.cellSize * 0.73, 0.03, this.cellSize * 0.79),
-      this.wallTrimMaterial.clone()
+    const glow = new THREE.Mesh(
+      new THREE.PlaneGeometry(this.cellSize * 1.2, this.cellSize * 1.04),
+      new THREE.MeshBasicMaterial({
+        color: 0xc58a3f,
+        transparent: true,
+        opacity: 0.08,
+        depthWrite: false,
+        side: THREE.DoubleSide
+      })
     );
-    frame.position.y = 0.072;
 
     const material = new THREE.MeshStandardMaterial({
       map: this.questionTexture,
@@ -1410,19 +1422,19 @@ class TowerRenderer {
       polygonOffsetUnits: -2
     });
     const plane = new THREE.Mesh(
-      new THREE.PlaneGeometry(this.cellSize * 0.66, this.cellSize * 0.74),
+      new THREE.PlaneGeometry(this.cellSize * 0.96, this.cellSize * 0.82),
       material
     );
-    plane.rotation.x = -Math.PI / 2;
-    plane.position.y = 0.02;
-    plane.renderOrder = 4;
-    [pedestal, collar, deck, inset, frame].forEach((mesh) => {
+    plate.position.z = 0.015;
+    innerFrame.position.z = 0.05;
+    glow.position.z = -0.05;
+    plane.position.z = 0.082;
+    plane.renderOrder = 6;
+    [outerFrame, plate, innerFrame].forEach((mesh) => {
       mesh.castShadow = true;
       mesh.receiveShadow = true;
     });
-    deckPivot.add(deck, inset, frame);
-    frame.add(plane);
-    group.add(pedestal, collar, deckPivot);
+    group.add(glow, outerFrame, plate, innerFrame, plane);
     group.visible = false;
     this.root.add(group);
     this.questionPanelGroup = group;
@@ -1788,12 +1800,25 @@ class TowerRenderer {
       debris.material.emissiveIntensity = key === this.targetHoverDebrisKey ? 0.34 : 0;
     });
 
-    const targetY = monster.state === 'ceiling' ? this.ceilingY - 1.08 : monster.state === 'stunned' ? 1.02 : 1.28;
     const monsterWorld = this.cellToWorld(monster.x, monster.y);
+    let targetY = monster.state === 'stunned' ? 0.84 : 0.9;
+    if (monster.state === 'ceiling') {
+      const attachedBox = this.boxNodes[tileKey(monster.x, monster.y)];
+      targetY = attachedBox
+        ? attachedBox.group.position.y - attachedBox.boxHeight * 0.5 + 0.28
+        : this.ceilingY - 1.5;
+    }
     this.monsterTarget.set(monsterWorld.x, targetY, monsterWorld.z);
     this.monsterGroup.position.lerp(this.monsterTarget, 0.18);
     this.monsterGroup.rotation.x = monster.state === 'ceiling' ? Math.PI : 0;
-    this.monsterGroup.scale.setScalar(monster.state === 'stunned' ? 1.12 : 1);
+    this.monsterGroup.rotation.z = monster.state === 'ceiling' ? Math.sin(this.clock.elapsedTime * 2.4) * 0.06 : 0;
+    this.monsterGroup.scale.setScalar(
+      monster.state === 'stunned'
+        ? 0.68
+        : monster.state === 'ceiling'
+          ? 0.82
+          : 0.76
+    );
 
     const pulse = 0.08 + Math.sin(this.clock.elapsedTime * 4.8) * 0.03;
     this.monsterPulseMaterials.forEach((entry, index) => {
@@ -1837,11 +1862,12 @@ class TowerRenderer {
 
     const world = this.cellToWorld(player.x, player.y);
     const panelYaw = typeof question.panelYaw === 'number' ? question.panelYaw : 0;
-    const forwardOffset = this.cellSize * 0.34;
+    const forwardOffset = this.cellSize * 0.88;
+    const hoverLift = Math.sin(this.clock.elapsedTime * 4.2) * 0.02;
     this.questionPanelGroup.visible = true;
     this.questionPanelGroup.position.set(
       world.x - Math.sin(panelYaw) * forwardOffset,
-      0,
+      this.eyeHeight - 0.1 + hoverLift,
       world.z - Math.cos(panelYaw) * forwardOffset
     );
     this.questionPanelGroup.rotation.set(0, panelYaw, 0);

@@ -1676,22 +1676,29 @@ class Game {
       let entry = this.topicButtonNodes[index];
       if (!entry) {
         const button = document.createElement('button');
+        const indexLabel = document.createElement('span');
+        const copy = document.createElement('span');
         const name = document.createElement('span');
         const bonus = document.createElement('span');
         const cooldown = document.createElement('span');
+        button.type = 'button';
         button.className = 'topic-btn';
+        indexLabel.className = 'topic-index';
+        copy.className = 'topic-copy';
         name.className = 'topic-name';
         bonus.className = 'topic-bonus';
         cooldown.className = 'topic-cooldown';
-        button.append(name, bonus, cooldown);
-        entry = { button, name, bonus, cooldown };
+        copy.append(name, bonus);
+        button.append(indexLabel, copy, cooldown);
+        entry = { button, indexLabel, name, bonus, cooldown };
         this.topicButtonNodes[index] = entry;
       }
 
       const cooldownMs = this._getSlotCooldownRemaining(config.slotDef.id, performance.now());
       entry.button.className = 'topic-btn';
       entry.button.classList.toggle('cooldown', cooldownMs > 0);
-      entry.name.textContent = `${index + 1}. ${config.grammarTopic}`;
+      entry.indexLabel.textContent = String(index + 1);
+      entry.name.textContent = config.grammarTopic;
       entry.bonus.textContent = config.slotDef.bonusLabel;
       entry.cooldown.textContent = cooldownMs > 0 ? `CD: ${Math.ceil(cooldownMs / 1000)} c` : '\u0413\u043e\u0442\u043e\u0432\u043e';
       entry.button.onclick = () => this.selectTopic(config.slotDef.id);
