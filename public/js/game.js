@@ -1,6 +1,7 @@
 const SCREEN_IDS = ['menu-screen', 'game-screen', 'win-screen', 'lose-screen', 'leaderboard-screen'];
 const LOOK_FREEZE_MAX_MS = 10000;
 const LOOK_FREEZE_COOLDOWN_MS = 10000;
+const LOOK_UP_PITCH_THRESHOLD = 0.18;
 const REVEAL_DURATION_MS = 10000;
 const FORTIFY_DURATION_MS = 30000;
 const STEALTH_DURATION_MS = 6000;
@@ -187,6 +188,7 @@ class Game {
     this.nextUiRefreshAt = 0;
     this.uiDirty = true;
     this.cameraDrag = { active: false, pointerId: null, lastX: 0, lastY: 0, moved: false };
+    this.topicButtonNodes = [];
 
     this.ui = this._cacheUi();
     this._bindUi();
@@ -254,6 +256,8 @@ class Game {
         return;
       }
 
+      this.renderer?.setPointerClientPosition(event.clientX, event.clientY);
+
       const shouldAnswer = this.state === 'question' && !this.cameraDrag.moved;
       const shouldSelectTarget = this.state === 'target_select' && !this.cameraDrag.moved;
       if (canvas.hasPointerCapture(event.pointerId)) {
@@ -281,6 +285,7 @@ class Game {
         return;
       }
 
+      this.renderer?.setPointerClientPosition(event.clientX, event.clientY);
       this.cameraDrag.active = true;
       this.cameraDrag.pointerId = event.pointerId;
       this.cameraDrag.lastX = event.clientX;
@@ -290,6 +295,7 @@ class Game {
     });
 
     canvas.addEventListener('pointermove', (event) => {
+      this.renderer?.setPointerClientPosition(event.clientX, event.clientY);
       if (!this.cameraDrag.active || event.pointerId !== this.cameraDrag.pointerId) {
         return;
       }
@@ -309,6 +315,11 @@ class Game {
 
     canvas.addEventListener('pointerup', finishDrag);
     canvas.addEventListener('pointercancel', finishDrag);
+    canvas.addEventListener('pointerleave', () => {
+      if (!this.cameraDrag.active) {
+        this.renderer?.clearPointerClientPosition();
+      }
+    });
   }
 
   async init(settings, reuseQuestions = false, preserveRunProgress = false) {
@@ -415,6 +426,7 @@ class Game {
       hatches,
       hatchMap: Object.fromEntries(hatches.map((hatch) => [tileKey(hatch.x, hatch.y), hatch])),
       boxes,
+      boxList: Object.values(boxes),
       debrisMap: Object.create(null),
       plannedQuakeTriggered: false,
       lastPlayerMoveAt: performance.now(),
@@ -545,7 +557,7 @@ class Game {
   }
 
   _createMonsterState(floorData) {
-    const liveBoxes = Object.values(floorData.boxes).filter((box) => !box.fallen);
+    const liveBoxes = floorData.boxList.filter((box) => !box.fallen);
     const farthest = [...liveBoxes].sort((left, right) => manhattan(right, floorData.start) - manhattan(left, floorData.start))[0];
 
     return {
@@ -632,7 +644,7 @@ class Game {
   }
 
   _updateBoxes(now, deltaSeconds) {
-    Object.values(this.floorData.boxes).forEach((box) => {
+    this._getFloorBoxes().forEach((box) => {
       if (box.fallAnimationUntil && now >= box.fallAnimationUntil) {
         box.fallAnimationUntil = 0;
         box.fallAnimationStartedAt = 0;
@@ -698,7 +710,7 @@ class Game {
       return;
     }
 
-    const candidates = Object.values(this.floorData.boxes)
+    const candidates = this._getFloorBoxes()
       .filter((box) => !box.fallen && box.fortifiedUntil <= now && !box.scheduledFallAt);
 
     if (!candidates.length) {
@@ -785,8 +797,18 @@ class Game {
     return this.monster.state === 'ceiling' && this._isLookingAtCeilingMonster() && !this.lookFreezeCooldownUntil && this.lookFreezeBudgetMs > 0;
   }
 
+  _getPlayerViewPitch() {
+    const pitchOffset = typeof this.player.cameraPitch === 'number' ? this.player.cameraPitch : 0;
+    const basePitch = this.state === 'question' ? -0.68 : this.player.lookMode === 'up' ? 0.54 : -0.08;
+    return clamp(basePitch + pitchOffset, -1.22, 1.18);
+  }
+
+  _isViewAimedUp() {
+    return this._getPlayerViewPitch() >= LOOK_UP_PITCH_THRESHOLD;
+  }
+
   _isLookingAtCeilingMonster() {
-    if (!this.renderer || !this.monster || this.monster.state !== 'ceiling' || this.player.lookMode !== 'up') {
+    if (!this.renderer || !this.monster || this.monster.state !== 'ceiling' || !this._isViewAimedUp()) {
       return false;
     }
 
@@ -803,8 +825,7 @@ class Game {
     const yaw = typeof this.player.cameraYaw === 'number'
       ? this.player.cameraYaw
       : this._facingToYaw(this.player.facing);
-    const pitchBase = this.player.lookMode === 'up' ? 0.54 : -0.08;
-    const pitch = clamp(pitchBase + (this.player.cameraPitch || 0), -1.22, 1.18);
+    const pitch = this._getPlayerViewPitch();
     const cosPitch = Math.cos(pitch);
     const forward = {
       x: -Math.sin(yaw) * cosPitch,
@@ -903,7 +924,7 @@ class Game {
   }
 
   _returnMonsterToCeiling(now) {
-    const liveBoxes = Object.values(this.floorData.boxes).filter((box) => !box.fallen);
+    const liveBoxes = this._getFloorBoxes().filter((box) => !box.fallen);
     if (!liveBoxes.length) {
       this.monster.state = 'ceiling';
       this.monster.nextMoveAt = now + this.floorConfig.ceilingMoveMs;
@@ -1063,6 +1084,10 @@ class Game {
     return box && !box.fallen ? box : null;
   }
 
+  _getFloorBoxes() {
+    return this.floorData?.boxList || [];
+  }
+
   _clearBoxFallWarning(box) {
     if (!box) {
       return;
@@ -1207,12 +1232,25 @@ class Game {
       return;
     }
 
+    if (this.targetMode === 'cleanup') {
+      const pickedDebris = this.renderer.pickCleanupDebris();
+      if (!pickedDebris) {
+        this._showMessage('\u041d\u0430\u0432\u0435\u0434\u0438\u0442\u0435 \u043a\u0443\u0440\u0441\u043e\u0440 \u043d\u0430 \u0441\u043e\u0441\u0435\u0434\u043d\u0438\u0439 \u0437\u0430\u0432\u0430\u043b \u0438 \u043a\u043b\u0438\u043a\u043d\u0438\u0442\u0435.', 1000);
+        return;
+      }
+
+      this.applyTargetSelection(pickedDebris.x, pickedDebris.y);
+      return;
+    }
+
     if (this.targetMode !== 'vision' && this.targetMode !== 'fortify') {
       return;
     }
 
     const pickedBox = this.renderer.pickCeilingBox();
     if (!pickedBox) {
+      this._showMessage('\u041d\u0430\u0432\u0435\u0434\u0438\u0442\u0435 \u043a\u0443\u0440\u0441\u043e\u0440 \u043d\u0430 \u044f\u0449\u0438\u043a \u043f\u043e\u0434 \u043f\u043e\u0442\u043e\u043b\u043a\u043e\u043c \u0438 \u043a\u043b\u0438\u043a\u043d\u0438\u0442\u0435.', 1000);
+      return;
       this._showMessage('Наведите центр взгляда на ящик под потолком.', 1000);
       return;
     }
@@ -1243,6 +1281,8 @@ class Game {
       this.state = 'target_select';
       this.targetMode = 'vision';
       this.targetSourceSlotId = slot.id;
+      this._showTargetPanel('\u041d\u0430\u0432\u0435\u0434\u0438\u0442\u0435 \u043a\u0443\u0440\u0441\u043e\u0440 \u043d\u0430 \u044f\u0449\u0438\u043a \u043f\u043e\u0434 \u043f\u043e\u0442\u043e\u043b\u043a\u043e\u043c \u0438 \u043a\u043b\u0438\u043a\u043d\u0438\u0442\u0435. \u041f\u043e\u0434\u0441\u0432\u0435\u0442\u0438\u0442\u0441\u044f \u0437\u043e\u043d\u0430 3x3 \u0432\u043e\u043a\u0440\u0443\u0433 \u043d\u0435\u0433\u043e \u043d\u0430 10 \u0441\u0435\u043a\u0443\u043d\u0434.', false);
+      return '\u0412\u0435\u0440\u043d\u043e. \u041d\u0430\u0432\u0435\u0434\u0438\u0442\u0435 \u043a\u0443\u0440\u0441\u043e\u0440 \u043d\u0430 \u043d\u0443\u0436\u043d\u044b\u0439 \u044f\u0449\u0438\u043a.';
       this._showTargetPanel('Наведите взгляд на ящик на потолке и подтвердите кликом. Подсветится зона 3x3 вокруг него на 10 секунд.', false);
       return 'Верно. Наведите взгляд на нужный ящик.';
       this._showTargetPanel('Выберите центр области 3x3. Там вы увидите цветовую устойчивость ящиков на 10 секунд.');
@@ -1254,6 +1294,8 @@ class Game {
       this.state = 'target_select';
       this.targetMode = 'fortify';
       this.targetSourceSlotId = slot.id;
+      this._showTargetPanel('\u041d\u0430\u0432\u0435\u0434\u0438\u0442\u0435 \u043a\u0443\u0440\u0441\u043e\u0440 \u043d\u0430 \u044f\u0449\u0438\u043a \u043f\u043e\u0434 \u043f\u043e\u0442\u043e\u043b\u043a\u043e\u043c \u0438 \u043a\u043b\u0438\u043a\u043d\u0438\u0442\u0435. \u0414\u043e \u0448\u0435\u0441\u0442\u0438 \u044f\u0449\u0438\u043a\u043e\u0432 \u0432\u043e\u043a\u0440\u0443\u0433 \u043d\u0435\u0433\u043e \u0431\u0443\u0434\u0443\u0442 \u0443\u043a\u0440\u0435\u043f\u043b\u0435\u043d\u044b \u043d\u0430 30 \u0441\u0435\u043a\u0443\u043d\u0434.', false);
+      return '\u0412\u0435\u0440\u043d\u043e. \u041d\u0430\u0432\u0435\u0434\u0438\u0442\u0435 \u043a\u0443\u0440\u0441\u043e\u0440 \u043d\u0430 \u0437\u043e\u043d\u0443, \u043a\u043e\u0442\u043e\u0440\u0443\u044e \u0445\u043e\u0442\u0438\u0442\u0435 \u0443\u043a\u0440\u0435\u043f\u0438\u0442\u044c.';
       this._showTargetPanel('Наведите взгляд на ящик на потолке и подтвердите кликом. До шести ящиков вокруг него будут укреплены на 30 секунд.', false);
       return 'Верно. Наведите взгляд на зону, которую хотите укрепить.';
       this._showTargetPanel('Выберите область 3x3. До шести ящиков в ней станут неуязвимыми на 30 секунд.');
@@ -1294,6 +1336,8 @@ class Game {
       this.state = 'target_select';
       this.targetMode = 'cleanup';
       this.targetSourceSlotId = slot.id;
+      this._showTargetPanel('\u041d\u0430\u0432\u0435\u0434\u0438\u0442\u0435 \u043a\u0443\u0440\u0441\u043e\u0440 \u043d\u0430 \u0441\u043e\u0441\u0435\u0434\u043d\u0438\u0439 \u0437\u0430\u0432\u0430\u043b \u0438 \u043a\u043b\u0438\u043a\u043d\u0438\u0442\u0435 \u043f\u043e \u043d\u0435\u043c\u0443.', false);
+      return '\u0412\u0435\u0440\u043d\u043e. \u041d\u0430\u0432\u0435\u0434\u0438\u0442\u0435 \u043a\u0443\u0440\u0441\u043e\u0440 \u043d\u0430 \u0441\u043e\u0441\u0435\u0434\u043d\u0438\u0439 \u0437\u0430\u0432\u0430\u043b.';
       this._showTargetPanel('Выберите один завал на соседней клетке.');
       return 'Верно. Выберите соседний завал.';
     }
@@ -1628,6 +1672,38 @@ class Game {
   _showTopicPanel() {
     this._hidePanels();
     this.ui.topicPanel.classList.remove('hidden');
+    this.slotConfigs.forEach((config, index) => {
+      let entry = this.topicButtonNodes[index];
+      if (!entry) {
+        const button = document.createElement('button');
+        const name = document.createElement('span');
+        const bonus = document.createElement('span');
+        const cooldown = document.createElement('span');
+        button.className = 'topic-btn';
+        name.className = 'topic-name';
+        bonus.className = 'topic-bonus';
+        cooldown.className = 'topic-cooldown';
+        button.append(name, bonus, cooldown);
+        entry = { button, name, bonus, cooldown };
+        this.topicButtonNodes[index] = entry;
+      }
+
+      const cooldownMs = this._getSlotCooldownRemaining(config.slotDef.id, performance.now());
+      entry.button.className = 'topic-btn';
+      entry.button.classList.toggle('cooldown', cooldownMs > 0);
+      entry.name.textContent = `${index + 1}. ${config.grammarTopic}`;
+      entry.bonus.textContent = config.slotDef.bonusLabel;
+      entry.cooldown.textContent = cooldownMs > 0 ? `CD: ${Math.ceil(cooldownMs / 1000)} c` : '\u0413\u043e\u0442\u043e\u0432\u043e';
+      entry.button.onclick = () => this.selectTopic(config.slotDef.id);
+      this.ui.topicButtons.appendChild(entry.button);
+    });
+
+    while (this.topicButtonNodes.length > this.slotConfigs.length) {
+      const entry = this.topicButtonNodes.pop();
+      entry?.button?.remove();
+    }
+
+    return;
     this.ui.topicButtons.innerHTML = '';
 
     this.slotConfigs.forEach((config, index) => {
@@ -1685,7 +1761,7 @@ class Game {
   }
 
   _renderTargetGrid() {
-    if (this.targetMode !== 'cleanup') {
+    if (this.targetMode !== 'cleanup' || this.ui.targetGrid.classList.contains('hidden')) {
       return;
     }
 
@@ -1752,7 +1828,11 @@ class Game {
       this._showTopicPanel();
     } else if (this.state === 'action_select') {
       this._showActionPanel();
-    } else if (this.state === 'target_select' && this.targetMode === 'cleanup') {
+    } else if (
+      this.state === 'target_select'
+      && this.targetMode === 'cleanup'
+      && !this.ui.targetGrid.classList.contains('hidden')
+    ) {
       this._renderTargetGrid();
     }
   }
@@ -1785,17 +1865,22 @@ class Game {
     this.ui.lookDownButton.classList.toggle('active', this.player.lookMode === 'down');
     this.ui.useHatchButton.classList.toggle('hidden', !(this.state === 'action_select' && this._getCurrentHatch() && !this._getCurrentHatch().opened));
 
+    const floorBoxes = this._getFloorBoxes();
+    const hasReveal = floorBoxes.some((box) => box.revealUntil > now);
+    const hasFortify = floorBoxes.some((box) => box.fortifiedUntil > now);
+    const hasWarning = floorBoxes.some((box) => !box.fallen && box.scheduledFallAt > now);
+
     this.ui.statusEffects.innerHTML = '';
     if (this.monster.hiddenUntil > now) {
       this.ui.statusEffects.appendChild(this._createStatusBadge(`Маскировка: ${formatSeconds(this.monster.hiddenUntil - now)} c`, 'success'));
     }
-    if (Object.values(this.floorData.boxes).some((box) => box.revealUntil > now)) {
+    if (hasReveal) {
       this.ui.statusEffects.appendChild(this._createStatusBadge('Видны stability-рамки', 'warning'));
     }
-    if (Object.values(this.floorData.boxes).some((box) => box.fortifiedUntil > now)) {
+    if (hasFortify) {
       this.ui.statusEffects.appendChild(this._createStatusBadge('Укрепление активно', 'success'));
     }
-    if (Object.values(this.floorData.boxes).some((box) => !box.fallen && box.scheduledFallAt > now)) {
+    if (hasWarning) {
       this.ui.statusEffects.appendChild(this._createStatusBadge('Сверху что-то трещит', 'warning'));
     }
     if (this.monster.state === 'stunned') {
@@ -1953,7 +2038,6 @@ class Game {
       return;
     }
 
-    this.renderer.setPlayerState(this.player);
     this.renderer.sync({
       now,
       state: this.state,
@@ -1963,7 +2047,10 @@ class Game {
       quake: this.quake,
       targeting: this.state === 'target_select'
         ? {
-            mode: this.targetMode
+            mode: this.targetMode,
+            cleanupKeys: this.targetMode === 'cleanup'
+              ? this._getCleanupTargets().map((tile) => tileKey(tile.x, tile.y))
+              : null
           }
         : null,
       question: this.currentQuestion

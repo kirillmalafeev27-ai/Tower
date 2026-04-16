@@ -28,13 +28,19 @@ class TowerRenderer {
     this.floorData = null;
     this.snapshot = null;
     this.boxNodes = Object.create(null);
+    this.boxNodeList = [];
     this.hatchNodes = Object.create(null);
     this.debrisNodes = Object.create(null);
     this.floorNodes = Object.create(null);
     this.monsterGroup = null;
+    this.monsterPulseMaterials = [];
+    this.monsterJawPivot = null;
+    this.monsterEyeNodes = [];
+    this.monsterTendrilNodes = [];
     this.wallTorches = [];
     this.moteField = null;
     this.questionPlane = null;
+    this.questionPanelGroup = null;
     this.questionCanvas = document.createElement('canvas');
     this.questionCanvas.width = 1536;
     this.questionCanvas.height = 1536;
@@ -47,7 +53,14 @@ class TowerRenderer {
     this.questionHoverIndex = -1;
     this.questionSignature = '';
     this.raycaster = new THREE.Raycaster();
+    this.screenCenter = new THREE.Vector2(0, 0);
+    this.pointerNdc = new THREE.Vector2(0, 0);
+    this.pointerInsideCanvas = false;
+    this.targetBoxBounds = new THREE.Box3();
+    this.targetBoxHit = new THREE.Vector3();
+    this.monsterTarget = new THREE.Vector3();
     this.targetHoverBoxKey = null;
+    this.targetHoverDebrisKey = null;
 
     this.playerState = { x: 0, y: 0, facing: 0, lookMode: 'down', cameraYaw: 0, cameraPitch: 0 };
     this.playerTarget = new THREE.Vector3();
@@ -245,8 +258,11 @@ class TowerRenderer {
     this.mossMaterial = new THREE.MeshStandardMaterial({ color: 0x23311f, roughness: 0.82, metalness: 0.02, transparent: true, opacity: 0.68, side: THREE.DoubleSide });
     this.torchBracketMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: ironMap, roughness: 0.28, metalness: 0.76 });
     this.torchFlameMaterial = new THREE.MeshBasicMaterial({ color: 0xffa24a });
-    this.monsterMaterial = new THREE.MeshStandardMaterial({ color: 0x1a130f, emissive: 0x140904, roughness: 0.7, metalness: 0.04 });
-    this.monsterEyeMaterial = new THREE.MeshBasicMaterial({ color: 0xff8b3d });
+    this.monsterMaterial = new THREE.MeshStandardMaterial({ color: 0x1a130f, emissive: 0x140904, roughness: 0.54, metalness: 0.05 });
+    this.monsterWetMaterial = new THREE.MeshStandardMaterial({ color: 0x24110d, emissive: 0x1b0705, roughness: 0.36, metalness: 0.03 });
+    this.monsterBoneMaterial = new THREE.MeshStandardMaterial({ color: 0xbca78f, emissive: 0x24150f, roughness: 0.58, metalness: 0.02 });
+    this.monsterClawMaterial = new THREE.MeshStandardMaterial({ color: 0x65564d, emissive: 0x140f0b, roughness: 0.26, metalness: 0.12 });
+    this.monsterEyeMaterial = new THREE.MeshStandardMaterial({ color: 0xffb16a, emissive: 0xff8b3d, roughness: 0.18, metalness: 0.05 });
 
     this.boxMaterials = {
       normal: new THREE.MeshStandardMaterial({ color: 0xffffff, map: normalCrateMap, roughness: 0.54, metalness: 0.06 }),
@@ -296,6 +312,7 @@ class TowerRenderer {
     this._clearFloor();
     this.floorData = floorData;
     this.boxNodes = Object.create(null);
+    this.boxNodeList = [];
     this.hatchNodes = Object.create(null);
     this.debrisNodes = Object.create(null);
     this.floorNodes = Object.create(null);
@@ -339,13 +356,21 @@ class TowerRenderer {
       this.root.remove(child);
     }
     this.floorData = null;
+    this.boxNodeList = [];
     this.wallTorches = [];
     this.moteField = null;
+    this.monsterGroup = null;
+    this.monsterPulseMaterials = [];
+    this.monsterJawPivot = null;
+    this.monsterEyeNodes = [];
+    this.monsterTendrilNodes = [];
     this.questionPlane = null;
+    this.questionPanelGroup = null;
     this.questionOptionRects = [];
     this.questionHoverIndex = -1;
     this.questionSignature = '';
     this.targetHoverBoxKey = null;
+    this.targetHoverDebrisKey = null;
   }
 
   _buildTiles() {
@@ -496,7 +521,7 @@ class TowerRenderer {
   }
 
   _buildBoxes() {
-    Object.values(this.floorData.boxes).forEach((box) => {
+    this.floorData.boxList.forEach((box) => {
       const world = this.cellToWorld(box.x, box.y);
       const group = new THREE.Group();
       const dims = box.type === 'heavy'
@@ -519,17 +544,31 @@ class TowerRenderer {
       group.userData.boxKey = box.key;
       group.traverse((child) => {
         child.userData.boxKey = box.key;
+        if (child !== group) {
+          child.matrixAutoUpdate = false;
+          child.updateMatrix();
+        }
       });
       this.root.add(group);
-      this.boxNodes[box.key] = {
+      const node = {
         group,
+        boxKey: box.key,
+        boxX: box.x,
+        boxY: box.y,
         emissiveMaterials,
+        targetHalfSize: {
+          x: dims[0] * 0.68,
+          y: dims[1] * 0.9,
+          z: dims[2] * 0.68
+        },
         baseY,
         baseRotationX,
         baseRotationZ,
         dropDirection: this._noise(box.x, box.y, 73) > 0.5 ? 1 : -1,
         swaySeed: this._noise(box.x, box.y, 79) * Math.PI * 2
       };
+      this.boxNodes[box.key] = node;
+      this.boxNodeList.push(node);
     });
   }
 
@@ -911,6 +950,9 @@ class TowerRenderer {
       const debris = new THREE.Mesh(new THREE.BoxGeometry(this.cellSize * 0.88, 0.56, this.cellSize * 0.88), this.debrisMaterial.clone());
       debris.position.set(world.x, 0.29, world.z);
       debris.visible = false;
+      debris.userData.debrisKey = tileKey(tile.x, tile.y);
+      debris.userData.debrisX = tile.x;
+      debris.userData.debrisY = tile.y;
       debris.castShadow = true;
       debris.receiveShadow = true;
       this.root.add(debris);
@@ -918,76 +960,472 @@ class TowerRenderer {
     });
   }
 
+  _registerMonsterMaterial(material, pulseScale = 1) {
+    this.monsterPulseMaterials.push({ material, pulseScale });
+    return material;
+  }
+
+  _warpOrganicGeometry(geometry, strength, seed = 0) {
+    geometry.computeBoundingBox();
+    const bounds = geometry.boundingBox;
+    const spanY = Math.max(
+      Math.abs(bounds.max.y),
+      Math.abs(bounds.min.y),
+      0.001
+    );
+    const positions = geometry.attributes.position;
+
+    for (let index = 0; index < positions.count; index += 1) {
+      let x = positions.getX(index);
+      let y = positions.getY(index);
+      let z = positions.getZ(index);
+
+      const radial = Math.hypot(x, z) || 0.001;
+      const radialNoise = (this._noise(index, seed, 571) - 0.5) * strength;
+      const axialNoise = (this._noise(index, seed, 577) - 0.5) * strength * 0.42;
+      const twist = (this._noise(index, seed, 587) - 0.5) * strength * 0.36;
+      const asymmetry = (this._noise(index, seed, 593) - 0.5) * strength * 0.3;
+      const yRatio = y / spanY;
+
+      x += (x / radial) * radialNoise + asymmetry * (0.35 + Math.abs(yRatio) * 0.4);
+      z += (z / radial) * radialNoise - twist * yRatio;
+      y += axialNoise + twist * (x / radial) * 0.35;
+
+      positions.setXYZ(index, x, y, z);
+    }
+
+    geometry.computeVertexNormals();
+    return geometry;
+  }
+
+  _createMonsterTorsoGeometry(seed = 0) {
+    const profile = [
+      new THREE.Vector2(0.18, -1.06),
+      new THREE.Vector2(0.56, -0.92),
+      new THREE.Vector2(0.84, -0.26),
+      new THREE.Vector2(0.92, 0.18),
+      new THREE.Vector2(0.72, 0.82),
+      new THREE.Vector2(0.36, 1.26),
+      new THREE.Vector2(0.14, 1.48)
+    ];
+    return this._warpOrganicGeometry(new THREE.LatheGeometry(profile, 18), 0.14, seed);
+  }
+
+  _createMonsterHeadGeometry(seed = 0) {
+    const profile = [
+      new THREE.Vector2(0.08, -0.72),
+      new THREE.Vector2(0.32, -0.64),
+      new THREE.Vector2(0.54, -0.16),
+      new THREE.Vector2(0.5, 0.18),
+      new THREE.Vector2(0.34, 0.56),
+      new THREE.Vector2(0.18, 0.82),
+      new THREE.Vector2(0.06, 0.98)
+    ];
+    return this._warpOrganicGeometry(new THREE.LatheGeometry(profile, 16), 0.1, seed);
+  }
+
+  _createMonsterJawGeometry(seed = 0) {
+    const profile = [
+      new THREE.Vector2(0.08, -0.34),
+      new THREE.Vector2(0.28, -0.28),
+      new THREE.Vector2(0.42, -0.08),
+      new THREE.Vector2(0.46, 0.14),
+      new THREE.Vector2(0.26, 0.26),
+      new THREE.Vector2(0.08, 0.3)
+    ];
+    return this._warpOrganicGeometry(new THREE.LatheGeometry(profile, 14), 0.08, seed);
+  }
+
+  _createMonsterArm(side, materials, seed = 0) {
+    const arm = new THREE.Group();
+
+    const shoulder = new THREE.Mesh(
+      this._warpOrganicGeometry(new THREE.SphereGeometry(0.28, 12, 10), 0.08, seed + 1),
+      materials.flesh
+    );
+    shoulder.position.set(side * 0.08, 0.04, 0.06);
+
+    const upper = new THREE.Mesh(
+      this._warpOrganicGeometry(new THREE.CylinderGeometry(0.16, 0.24, 1.04, 10), 0.08, seed + 3),
+      materials.fleshDark
+    );
+    upper.position.set(side * 0.26, -0.36, 0.18);
+    upper.rotation.z = side * 0.78;
+    upper.rotation.x = 0.42;
+
+    const elbow = new THREE.Mesh(
+      this._warpOrganicGeometry(new THREE.SphereGeometry(0.18, 10, 10), 0.06, seed + 5),
+      materials.wet
+    );
+    elbow.position.set(side * 0.58, -0.68, 0.54);
+
+    const fore = new THREE.Mesh(
+      this._warpOrganicGeometry(new THREE.CylinderGeometry(0.1, 0.16, 1.28, 10), 0.1, seed + 7),
+      materials.wet
+    );
+    fore.position.set(side * 0.88, -1.06, 0.82);
+    fore.rotation.z = side * 0.46;
+    fore.rotation.x = -0.08;
+
+    const palm = new THREE.Mesh(
+      this._warpOrganicGeometry(new THREE.SphereGeometry(0.22, 10, 10), 0.08, seed + 9),
+      materials.wet
+    );
+    palm.position.set(side * 1.08, -1.58, 1.02);
+    palm.scale.set(1.2, 0.58, 1.45);
+
+    for (let index = 0; index < 4; index += 1) {
+      const claw = new THREE.Mesh(
+        new THREE.ConeGeometry(0.05 + index * 0.01, 0.42 + index * 0.06, 5),
+        materials.claw
+      );
+      claw.position.set(
+        side * (0.95 + index * 0.07),
+        -1.74 - index * 0.03,
+        1.16 + index * 0.09
+      );
+      claw.rotation.x = 1.08 + index * 0.1;
+      claw.rotation.z = side * (0.24 + index * 0.1);
+      arm.add(claw);
+    }
+
+    arm.add(shoulder, upper, elbow, fore, palm);
+    arm.position.x = side * 0.74;
+    arm.position.y = 0.48;
+    arm.position.z = 0.1;
+    return arm;
+  }
+
+  _createMonsterLeg(side, materials, seed = 0) {
+    const leg = new THREE.Group();
+
+    const thigh = new THREE.Mesh(
+      this._warpOrganicGeometry(new THREE.CylinderGeometry(0.18, 0.26, 0.96, 10), 0.08, seed + 1),
+      materials.fleshDark
+    );
+    thigh.position.set(side * 0.14, -0.42, 0.18);
+    thigh.rotation.z = side * 0.18;
+    thigh.rotation.x = -0.28;
+
+    const knee = new THREE.Mesh(
+      this._warpOrganicGeometry(new THREE.SphereGeometry(0.16, 10, 10), 0.05, seed + 3),
+      materials.wet
+    );
+    knee.position.set(side * 0.18, -0.84, 0.32);
+
+    const shin = new THREE.Mesh(
+      this._warpOrganicGeometry(new THREE.CylinderGeometry(0.1, 0.16, 1.08, 10), 0.08, seed + 5),
+      materials.bone
+    );
+    shin.position.set(side * 0.22, -1.28, 0.44);
+    shin.rotation.x = 0.54;
+    shin.rotation.z = side * 0.08;
+
+    const foot = new THREE.Mesh(
+      this._warpOrganicGeometry(new THREE.BoxGeometry(0.24, 0.14, 0.72), 0.05, seed + 7),
+      materials.claw
+    );
+    foot.position.set(side * 0.24, -1.82, 0.94);
+    foot.rotation.x = -0.18;
+    foot.rotation.y = side * 0.06;
+
+    for (let index = 0; index < 3; index += 1) {
+      const toe = new THREE.Mesh(
+        new THREE.ConeGeometry(0.04 + index * 0.006, 0.28 + index * 0.04, 5),
+        materials.claw
+      );
+      toe.position.set(
+        side * (0.18 + index * 0.05),
+        -1.86,
+        1.18 + index * 0.12
+      );
+      toe.rotation.x = 1.18;
+      toe.rotation.z = side * (0.08 + index * 0.08);
+      leg.add(toe);
+    }
+
+    leg.add(thigh, knee, shin, foot);
+    leg.position.x = side * 0.34;
+    leg.position.y = -0.52;
+    leg.position.z = 0;
+    return leg;
+  }
+
+  _createMonsterTendril(seed, material) {
+    const tendril = new THREE.Group();
+    let offsetY = 0;
+    let offsetZ = 0;
+
+    for (let index = 0; index < 3; index += 1) {
+      const segment = new THREE.Mesh(
+        this._warpOrganicGeometry(
+          new THREE.CylinderGeometry(0.09 - index * 0.018, 0.14 - index * 0.022, 0.56 - index * 0.08, 9),
+          0.06,
+          seed + index * 11
+        ),
+        material
+      );
+      segment.position.set(0, offsetY - 0.24, offsetZ + 0.16);
+      segment.rotation.x = 0.42 + index * 0.24;
+      segment.rotation.z = (this._noise(seed, index, 601) - 0.5) * 0.42;
+      tendril.add(segment);
+      offsetY -= 0.34;
+      offsetZ += 0.2;
+    }
+
+    tendril.userData.baseRotationX = 0.22 + (this._noise(seed, 0, 607) - 0.5) * 0.18;
+    tendril.userData.baseRotationZ = (this._noise(seed, 0, 613) - 0.5) * 0.24;
+    tendril.rotation.x = tendril.userData.baseRotationX;
+    tendril.rotation.z = tendril.userData.baseRotationZ;
+    return tendril;
+  }
+
   _buildMonster() {
     this.monsterGroup = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.86, 1.84, 16), this.monsterMaterial.clone());
-    const belly = new THREE.Mesh(new THREE.SphereGeometry(0.88, 18, 16), this.monsterMaterial.clone());
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.56, 18, 16), this.monsterMaterial.clone());
-    const jaw = new THREE.Mesh(new THREE.SphereGeometry(0.3, 14, 12), this.monsterMaterial.clone());
-    const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 10), this.monsterEyeMaterial.clone());
-    const eyeR = eyeL.clone();
-    body.position.set(0, 0.12, 0.08);
-    body.rotation.z = 0.08;
-    belly.position.set(0, -0.18, 0.18);
-    belly.scale.set(1, 0.9, 1.05);
-    head.position.set(0, 0.96, 0.52);
-    jaw.position.set(0, 0.68, 0.94);
-    jaw.scale.set(1.35, 0.72, 1.5);
-    eyeL.position.set(-0.16, 1.02, 0.98);
-    eyeR.position.set(0.16, 1.02, 0.98);
+    this.monsterPulseMaterials = [];
+    this.monsterEyeNodes = [];
+    this.monsterTendrilNodes = [];
+
+    const materials = {
+      flesh: this._registerMonsterMaterial(this.monsterMaterial.clone(), 1),
+      fleshDark: this._registerMonsterMaterial(this.monsterMaterial.clone(), 0.82),
+      wet: this._registerMonsterMaterial(this.monsterWetMaterial.clone(), 1.16),
+      bone: this._registerMonsterMaterial(this.monsterBoneMaterial.clone(), 0.52),
+      claw: this._registerMonsterMaterial(this.monsterClawMaterial.clone(), 0.44),
+      eyeHot: this._registerMonsterMaterial(this.monsterEyeMaterial.clone(), 1.8),
+      eyeDim: this._registerMonsterMaterial(this.monsterEyeMaterial.clone(), 1.35)
+    };
+
+    materials.fleshDark.color.offsetHSL(0, -0.02, -0.08);
+    materials.fleshDark.emissive.offsetHSL(0, 0, -0.04);
+    materials.bone.color.offsetHSL(0.02, -0.08, 0.04);
+    materials.eyeDim.color.offsetHSL(-0.01, 0.04, -0.05);
+
+    const torso = new THREE.Mesh(this._createMonsterTorsoGeometry(1), materials.flesh);
+    torso.position.set(0.02, 0.1, 0.06);
+    torso.scale.set(0.96, 1.08, 1);
+    torso.rotation.z = 0.12;
+    torso.rotation.y = 0.08;
+
+    const abdomen = new THREE.Mesh(
+      this._warpOrganicGeometry(new THREE.SphereGeometry(0.74, 16, 14), 0.14, 19),
+      materials.wet
+    );
+    abdomen.position.set(0.04, -0.34, 0.34);
+    abdomen.scale.set(1.04, 0.82, 1.2);
+
+    const shoulderMass = new THREE.Mesh(
+      this._warpOrganicGeometry(new THREE.SphereGeometry(0.56, 14, 12), 0.11, 23),
+      materials.fleshDark
+    );
+    shoulderMass.position.set(-0.12, 0.82, 0.06);
+    shoulderMass.scale.set(1.3, 0.8, 1.12);
+    shoulderMass.rotation.z = -0.24;
+
+    const neck = new THREE.Mesh(
+      this._warpOrganicGeometry(new THREE.CylinderGeometry(0.18, 0.28, 0.72, 10), 0.08, 29),
+      materials.wet
+    );
+    neck.position.set(0.06, 1.12, 0.42);
+    neck.rotation.z = 0.18;
+    neck.rotation.x = -0.36;
+
+    const headPivot = new THREE.Group();
+    headPivot.position.set(0.12, 1.32, 0.72);
+    headPivot.rotation.set(-0.34, 0.14, -0.16);
+
+    const skull = new THREE.Mesh(this._createMonsterHeadGeometry(31), materials.fleshDark);
+    skull.scale.set(0.9, 1.08, 1.24);
+
+    const cheekGrowth = new THREE.Mesh(
+      this._warpOrganicGeometry(new THREE.SphereGeometry(0.26, 12, 10), 0.09, 37),
+      materials.wet
+    );
+    cheekGrowth.position.set(-0.26, -0.08, 0.2);
+    cheekGrowth.scale.set(1.2, 0.7, 1.4);
+
+    const horn = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.76, 6), materials.bone);
+    horn.position.set(-0.14, 0.68, -0.08);
+    horn.rotation.x = -0.58;
+    horn.rotation.z = -0.44;
+
+    const browSpine = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.5, 5), materials.bone);
+    browSpine.position.set(0.18, 0.32, 0.44);
+    browSpine.rotation.x = -1.24;
+    browSpine.rotation.z = 0.22;
+
+    const jawPivot = new THREE.Group();
+    jawPivot.position.set(0, -0.02, 0.54);
+    jawPivot.userData.baseRotationX = 0.16;
+    jawPivot.rotation.x = jawPivot.userData.baseRotationX;
+
+    const jaw = new THREE.Mesh(this._createMonsterJawGeometry(41), materials.wet);
+    jaw.scale.set(1.08, 0.82, 1.36);
+    jaw.position.set(0, -0.18, 0.12);
+    jawPivot.add(jaw);
+
+    for (let index = 0; index < 6; index += 1) {
+      const upperTooth = new THREE.Mesh(
+        new THREE.ConeGeometry(0.03 + index * 0.004, 0.18 + index * 0.015, 5),
+        materials.bone
+      );
+      upperTooth.position.set(-0.2 + index * 0.08, -0.26, 0.54 + index * 0.03);
+      upperTooth.rotation.x = Math.PI;
+      skull.add(upperTooth);
+
+      const lowerTooth = new THREE.Mesh(
+        new THREE.ConeGeometry(0.03 + index * 0.004, 0.18 + index * 0.015, 5),
+        materials.bone
+      );
+      lowerTooth.position.set(-0.22 + index * 0.088, -0.32, 0.28 + index * 0.035);
+      jawPivot.add(lowerTooth);
+    }
 
     [
-      { x: -0.84, y: -0.12, z: 0.28, rz: 0.94 },
-      { x: 0.84, y: -0.12, z: 0.28, rz: -0.94 }
-    ].forEach((arm) => {
-      const limb = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.18, 1.6, 10), this.monsterMaterial.clone());
-      const claw = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.52, 8), this.monsterMaterial.clone());
-      limb.position.set(arm.x, arm.y, arm.z);
-      limb.rotation.z = arm.rz;
-      limb.rotation.x = 0.32;
-      claw.position.set(arm.x + Math.sign(arm.x) * 0.55, arm.y - 0.56, arm.z + 0.34);
-      claw.rotation.z = arm.rz;
-      claw.rotation.x = 0.22;
-      limb.castShadow = true;
-      claw.castShadow = true;
-      this.monsterGroup.add(limb, claw);
+      { x: -0.18, y: 0.06, z: 0.58, scale: 1.12, material: materials.eyeHot },
+      { x: 0.04, y: 0.12, z: 0.66, scale: 0.92, material: materials.eyeDim },
+      { x: 0.22, y: -0.04, z: 0.54, scale: 0.74, material: materials.eyeHot }
+    ].forEach((eyeConfig, index) => {
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.07 + index * 0.01, 10, 10), eyeConfig.material);
+      eye.position.set(eyeConfig.x, eyeConfig.y, eyeConfig.z);
+      eye.scale.setScalar(eyeConfig.scale);
+      eye.userData.baseScale = eyeConfig.scale;
+      this.monsterEyeNodes.push(eye);
+      skull.add(eye);
     });
+
+    headPivot.add(skull, cheekGrowth, horn, browSpine, jawPivot);
+    this.monsterJawPivot = jawPivot;
+
+    for (let side = -1; side <= 1; side += 2) {
+      const arm = this._createMonsterArm(side, materials, 51 + side * 9);
+      const leg = this._createMonsterLeg(side, materials, 73 + side * 11);
+      this.monsterGroup.add(arm, leg);
+    }
 
     [
-      { x: -0.34, z: 0.12, rz: 0.12 },
-      { x: 0.34, z: 0.12, rz: -0.12 }
-    ].forEach((leg) => {
-      const limb = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.24, 1.18, 10), this.monsterMaterial.clone());
-      limb.position.set(leg.x, -1.02, leg.z);
-      limb.rotation.z = leg.rz;
-      limb.castShadow = true;
-      this.monsterGroup.add(limb);
+      { x: -0.42, y: 0.48, z: 0.24, rz: -0.36 },
+      { x: 0.42, y: 0.34, z: 0.18, rz: 0.34 },
+      { x: -0.18, y: 0.08, z: 0.38, rz: -0.08 },
+      { x: 0.18, y: -0.06, z: 0.44, rz: 0.1 }
+    ].forEach((rib, index) => {
+      const plate = new THREE.Mesh(
+        this._warpOrganicGeometry(new THREE.BoxGeometry(0.12, 0.46 + index * 0.08, 0.08), 0.04, 97 + index * 5),
+        materials.bone
+      );
+      plate.position.set(rib.x, rib.y, rib.z);
+      plate.rotation.z = rib.rz;
+      plate.rotation.x = -0.24;
+      this.monsterGroup.add(plate);
     });
 
-    [body, belly, head, jaw, eyeL, eyeR].forEach((part) => {
-      part.castShadow = true;
-      part.receiveShadow = true;
-    });
+    for (let index = 0; index < 6; index += 1) {
+      const spine = new THREE.Mesh(
+        new THREE.ConeGeometry(0.08 + index * 0.01, 0.44 + index * 0.07, 5),
+        materials.bone
+      );
+      spine.position.set(
+        (this._noise(index, 0, 109) - 0.5) * 0.3,
+        -0.16 + index * 0.34,
+        -0.08 - index * 0.1
+      );
+      spine.rotation.x = -0.44 - this._noise(index, 0, 113) * 0.4;
+      spine.rotation.z = (this._noise(index, 0, 127) - 0.5) * 0.3;
+      this.monsterGroup.add(spine);
+    }
 
-    this.monsterGroup.add(body, belly, head, jaw, eyeL, eyeR);
+    for (let index = 0; index < 3; index += 1) {
+      const tendril = this._createMonsterTendril(131 + index * 17, materials.wet);
+      tendril.position.set(-0.34 + index * 0.34, 0.18 + index * 0.1, -0.22 - index * 0.12);
+      this.monsterTendrilNodes.push(tendril);
+      this.monsterGroup.add(tendril);
+    }
+
+    const tailRoot = new THREE.Mesh(
+      this._warpOrganicGeometry(new THREE.CylinderGeometry(0.16, 0.22, 0.8, 10), 0.08, 181),
+      materials.wet
+    );
+    tailRoot.position.set(0, -0.92, -0.24);
+    tailRoot.rotation.x = 0.86;
+
+    this.monsterGroup.add(torso, abdomen, shoulderMass, neck, headPivot, tailRoot);
+    this.monsterGroup.traverse((child) => {
+      if (child.isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+        child.matrixAutoUpdate = false;
+        child.updateMatrix();
+      }
+    });
     this.root.add(this.monsterGroup);
   }
 
   _buildQuestionCard() {
-    const material = new THREE.MeshBasicMaterial({
+    const group = new THREE.Group();
+    const pedestal = new THREE.Mesh(
+      new THREE.BoxGeometry(this.cellSize * 0.72, 0.34, this.cellSize * 0.6),
+      this.floorEdgeMaterial.clone()
+    );
+    pedestal.position.y = 0.18;
+
+    const collar = new THREE.Mesh(
+      new THREE.BoxGeometry(this.cellSize * 0.78, 0.08, this.cellSize * 0.68),
+      this.wallTrimMaterial.clone()
+    );
+    collar.position.y = 0.38;
+
+    const deckPivot = new THREE.Group();
+    deckPivot.position.set(0, 0.42, 0.04);
+    deckPivot.rotation.x = -0.24;
+
+    const deck = new THREE.Mesh(
+      new THREE.BoxGeometry(this.cellSize * 0.76, 0.12, this.cellSize * 0.82),
+      this.floorMaterial.clone()
+    );
+
+    const inset = new THREE.Mesh(
+      new THREE.BoxGeometry(this.cellSize * 0.7, 0.05, this.cellSize * 0.76),
+      this.floorInsetMaterial.clone()
+    );
+    inset.position.y = 0.045;
+    inset.position.z = 0.02;
+
+    const frame = new THREE.Mesh(
+      new THREE.BoxGeometry(this.cellSize * 0.73, 0.03, this.cellSize * 0.79),
+      this.wallTrimMaterial.clone()
+    );
+    frame.position.y = 0.072;
+
+    const material = new THREE.MeshStandardMaterial({
       map: this.questionTexture,
+      color: 0xd8c594,
       transparent: true,
       side: THREE.DoubleSide,
-      depthWrite: false
+      depthWrite: false,
+      alphaTest: 0.02,
+      roughness: 0.82,
+      metalness: 0.02,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2
     });
     const plane = new THREE.Mesh(
-      new THREE.PlaneGeometry(this.cellSize * 1.18, this.cellSize * 1.18),
+      new THREE.PlaneGeometry(this.cellSize * 0.66, this.cellSize * 0.74),
       material
     );
-    plane.position.y = this.eyeHeight - 0.04;
+    plane.rotation.x = -Math.PI / 2;
+    plane.position.y = 0.02;
     plane.renderOrder = 4;
-    plane.visible = false;
-    this.root.add(plane);
+    [pedestal, collar, deck, inset, frame].forEach((mesh) => {
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+    });
+    deckPivot.add(deck, inset, frame);
+    frame.add(plane);
+    group.add(pedestal, collar, deckPivot);
+    group.visible = false;
+    this.root.add(group);
+    this.questionPanelGroup = group;
     this.questionPlane = plane;
   }
 
@@ -1129,14 +1567,49 @@ class TowerRenderer {
     const world = this.cellToWorld(player.x, player.y);
     this.playerTarget.set(world.x, this.eyeHeight, world.z);
     this.targetYaw = typeof player.cameraYaw === 'number' ? player.cameraYaw : this._getFacingYaw(player.facing);
-    const pitchOffset = typeof player.cameraPitch === 'number' ? player.cameraPitch : 0;
-    const basePitch = this.snapshot?.question?.active ? -0.04 : player.lookMode === 'up' ? 0.54 : -0.08;
-    this.targetPitch = Math.max(-1.22, Math.min(1.18, basePitch + pitchOffset));
+    this.targetPitch = this._getViewPitch(player);
     if (instant) {
       this.playerRender.copy(this.playerTarget);
       this.yaw = this.targetYaw;
       this.pitch = this.targetPitch;
     }
+  }
+
+  _getViewPitch(player = this.playerState) {
+    if (!player) {
+      return -0.08;
+    }
+
+    const pitchOffset = typeof player.cameraPitch === 'number' ? player.cameraPitch : 0;
+    const basePitch = this.snapshot?.question?.active ? -0.68 : player.lookMode === 'up' ? 0.54 : -0.08;
+    return Math.max(-1.22, Math.min(1.18, basePitch + pitchOffset));
+  }
+
+  _isViewAimedUp(player = this.playerState) {
+    return this._getViewPitch(player) >= 0.18;
+  }
+
+  setPointerClientPosition(clientX, clientY) {
+    const rect = this.canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) {
+      return;
+    }
+
+    const px = (clientX - rect.left) / rect.width;
+    const py = (clientY - rect.top) / rect.height;
+    this.pointerInsideCanvas = px >= 0 && px <= 1 && py >= 0 && py <= 1;
+    this.pointerNdc.set(
+      Math.max(-1, Math.min(1, px * 2 - 1)),
+      Math.max(-1, Math.min(1, -(py * 2 - 1)))
+    );
+  }
+
+  clearPointerClientPosition() {
+    this.pointerInsideCanvas = false;
+  }
+
+  _getRaycastPointer() {
+    return this.pointerInsideCanvas ? this.pointerNdc : this.screenCenter;
   }
 
   sync(snapshot) {
@@ -1165,22 +1638,11 @@ class TowerRenderer {
   }
 
   pickCeilingBox() {
-    const intersection = this._getCeilingBoxIntersection();
-    if (!intersection?.object) {
-      return null;
-    }
+    return this._getCeilingBoxIntersection();
+  }
 
-    const boxKey = this._findBoxKeyFromObject(intersection.object);
-    if (!boxKey || !this.floorData?.boxes[boxKey]) {
-      return null;
-    }
-
-    const box = this.floorData.boxes[boxKey];
-    if (box.fallen) {
-      return null;
-    }
-
-    return { key: boxKey, x: box.x, y: box.y };
+  pickCleanupDebris() {
+    return this._getCleanupDebrisIntersection();
   }
 
   startLoop(updateCallback) {
@@ -1249,10 +1711,12 @@ class TowerRenderer {
 
     this.setPlayerState(player);
 
-    Object.values(floorData.boxes).forEach((box) => {
+    const boxList = floorData.boxList;
+    for (let index = 0; index < boxList.length; index += 1) {
+      const box = boxList[index];
       const node = this.boxNodes[box.key];
       if (!node) {
-        return;
+        continue;
       }
 
       const isBreaking = box.fallAnimationUntil > now;
@@ -1268,7 +1732,7 @@ class TowerRenderer {
 
       node.group.visible = !box.fallen || isBreaking;
       if (!node.group.visible) {
-        return;
+        continue;
       }
 
       node.group.position.set(
@@ -1302,7 +1766,7 @@ class TowerRenderer {
       if ((this.snapshot?.targeting?.mode === 'vision' || this.snapshot?.targeting?.mode === 'fortify') && this.targetHoverBoxKey === box.key) {
         applyEmissive(this.snapshot.targeting.mode === 'fortify' ? 0x7db2e8 : 0xe8c88a, 0.64);
       }
-    });
+    }
 
     floorData.hatches.forEach((hatch) => {
       const node = this.hatchNodes[tileKey(hatch.x, hatch.y)];
@@ -1316,20 +1780,36 @@ class TowerRenderer {
     });
 
     Object.keys(this.debrisNodes).forEach((key) => {
-      this.debrisNodes[key].visible = Boolean(floorData.debrisMap[key]);
+      const debris = this.debrisNodes[key];
+      const isVisible = Boolean(floorData.debrisMap[key]);
+      debris.visible = isVisible;
+      debris.scale.setScalar(key === this.targetHoverDebrisKey ? 1.04 : 1);
+      debris.material.emissive.setHex(key === this.targetHoverDebrisKey ? 0xc28d47 : 0x000000);
+      debris.material.emissiveIntensity = key === this.targetHoverDebrisKey ? 0.34 : 0;
     });
 
-    const monsterWorld = this.cellToWorld(monster.x, monster.y);
     const targetY = monster.state === 'ceiling' ? this.ceilingY - 1.08 : monster.state === 'stunned' ? 1.02 : 1.28;
-    this.monsterGroup.position.lerp(new THREE.Vector3(monsterWorld.x, targetY, monsterWorld.z), 0.18);
+    const monsterWorld = this.cellToWorld(monster.x, monster.y);
+    this.monsterTarget.set(monsterWorld.x, targetY, monsterWorld.z);
+    this.monsterGroup.position.lerp(this.monsterTarget, 0.18);
     this.monsterGroup.rotation.x = monster.state === 'ceiling' ? Math.PI : 0;
     this.monsterGroup.scale.setScalar(monster.state === 'stunned' ? 1.12 : 1);
 
     const pulse = 0.08 + Math.sin(this.clock.elapsedTime * 4.8) * 0.03;
-    this.monsterGroup.children.forEach((child, index) => {
-      if (child.material && child.material.emissiveIntensity !== undefined) {
-        child.material.emissiveIntensity = 0.035 + pulse + index * 0.004;
-      }
+    this.monsterPulseMaterials.forEach((entry, index) => {
+      entry.material.emissiveIntensity = 0.02 + pulse * entry.pulseScale + index * 0.004;
+    });
+    if (this.monsterJawPivot) {
+      this.monsterJawPivot.rotation.x = this.monsterJawPivot.userData.baseRotationX + 0.06 + Math.sin(this.clock.elapsedTime * 3.8) * 0.09;
+    }
+    this.monsterEyeNodes.forEach((eye, index) => {
+      const scale = (eye.userData.baseScale || 1) * (1 + Math.sin(this.clock.elapsedTime * (5.2 + index * 0.7)) * 0.06);
+      eye.scale.setScalar(scale);
+      eye.updateMatrix();
+    });
+    this.monsterTendrilNodes.forEach((tendril, index) => {
+      tendril.rotation.x = tendril.userData.baseRotationX + Math.sin(this.clock.elapsedTime * (2.6 + index * 0.45)) * 0.14;
+      tendril.rotation.z = tendril.userData.baseRotationZ + Math.cos(this.clock.elapsedTime * (3 + index * 0.32)) * 0.1;
     });
 
     this.quakeLight.intensity = quake.phase === 'warning' ? 0.9 : quake.phase === 'active' ? 1.5 : 0;
@@ -1344,9 +1824,9 @@ class TowerRenderer {
   }
 
   _updateQuestionCard(question, player) {
-    if (!this.questionPlane || !question?.active || !question.options?.length) {
-      if (this.questionPlane) {
-        this.questionPlane.visible = false;
+    if (!this.questionPlane || !this.questionPanelGroup || !question?.active || !question.options?.length) {
+      if (this.questionPanelGroup) {
+        this.questionPanelGroup.visible = false;
       }
       if (this.questionHoverIndex !== -1) {
         this.questionHoverIndex = -1;
@@ -1357,14 +1837,14 @@ class TowerRenderer {
 
     const world = this.cellToWorld(player.x, player.y);
     const panelYaw = typeof question.panelYaw === 'number' ? question.panelYaw : 0;
-    const forwardOffset = this.cellSize * 0.58;
-    this.questionPlane.visible = true;
-    this.questionPlane.position.set(
+    const forwardOffset = this.cellSize * 0.34;
+    this.questionPanelGroup.visible = true;
+    this.questionPanelGroup.position.set(
       world.x - Math.sin(panelYaw) * forwardOffset,
-      this.eyeHeight - 0.05,
+      0,
       world.z - Math.cos(panelYaw) * forwardOffset
     );
-    this.questionPlane.rotation.set(-0.04, panelYaw, 0);
+    this.questionPanelGroup.rotation.set(0, panelYaw, 0);
 
     const nextSignature = JSON.stringify({
       topic: question.topic,
@@ -1385,7 +1865,7 @@ class TowerRenderer {
   }
 
   _updateQuestionHover() {
-    if (!this.snapshot?.question?.active || !this.questionPlane?.visible || this.snapshot.question.selectedIndex !== null) {
+    if (!this.snapshot?.question?.active || !this.questionPanelGroup?.visible || this.snapshot.question.selectedIndex !== null) {
       if (this.questionHoverIndex !== -1) {
         this.questionHoverIndex = -1;
         this.questionSignature = '';
@@ -1403,50 +1883,111 @@ class TowerRenderer {
   _updateTargetHover() {
     const isTargetingBox = this.snapshot?.state === 'target_select'
       && (this.snapshot?.targeting?.mode === 'vision' || this.snapshot?.targeting?.mode === 'fortify')
-      && this.snapshot?.player?.lookMode === 'up';
+      && this._isViewAimedUp(this.snapshot?.player);
+    const isTargetingCleanup = this.snapshot?.state === 'target_select'
+      && this.snapshot?.targeting?.mode === 'cleanup';
 
-    if (!isTargetingBox) {
+    if (isTargetingBox) {
+      const picked = this.pickCeilingBox();
+      this.targetHoverBoxKey = picked?.key || null;
+    } else {
       this.targetHoverBoxKey = null;
-      return;
     }
 
-    const picked = this.pickCeilingBox();
-    this.targetHoverBoxKey = picked?.key || null;
+    if (isTargetingCleanup) {
+      const pickedDebris = this.pickCleanupDebris();
+      this.targetHoverDebrisKey = pickedDebris?.key || null;
+    } else {
+      this.targetHoverDebrisKey = null;
+    }
   }
 
   _getQuestionIntersection() {
-    if (!this.questionPlane?.visible) {
+    if (!this.questionPlane?.visible || !this.questionPanelGroup?.visible) {
       return null;
     }
 
-    this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
+    this.raycaster.setFromCamera(this._getRaycastPointer(), this.camera);
     const [intersection] = this.raycaster.intersectObject(this.questionPlane, false);
     return intersection || null;
   }
 
   _getCeilingBoxIntersection() {
-    if (!Object.keys(this.boxNodes).length) {
+    if (!this.boxNodeList.length || !this.floorData) {
       return null;
     }
 
-    this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
-    const targets = Object.values(this.boxNodes).map((node) => node.group);
-    const intersections = this.raycaster.intersectObjects(targets, true);
-    return intersections.find((hit) => {
-      const boxKey = this._findBoxKeyFromObject(hit.object);
-      return boxKey && this.floorData?.boxes[boxKey] && !this.floorData.boxes[boxKey].fallen;
-    }) || null;
+    this.raycaster.setFromCamera(this._getRaycastPointer(), this.camera);
+    let bestHit = null;
+    let bestDistance = Infinity;
+
+    for (let index = 0; index < this.boxNodeList.length; index += 1) {
+      const node = this.boxNodeList[index];
+      const box = this.floorData.boxes[node.boxKey];
+      if (!box || box.fallen || !node.group.visible) {
+        continue;
+      }
+
+      const scale = node.group.scale.x || 1;
+      const halfX = node.targetHalfSize.x * scale;
+      const halfY = node.targetHalfSize.y * scale;
+      const halfZ = node.targetHalfSize.z * scale;
+      this.targetBoxBounds.min.set(
+        node.group.position.x - halfX,
+        node.group.position.y - halfY,
+        node.group.position.z - halfZ
+      );
+      this.targetBoxBounds.max.set(
+        node.group.position.x + halfX,
+        node.group.position.y + halfY,
+        node.group.position.z + halfZ
+      );
+
+      if (!this.raycaster.ray.intersectBox(this.targetBoxBounds, this.targetBoxHit)) {
+        continue;
+      }
+
+      const distance = this.raycaster.ray.origin.distanceToSquared(this.targetBoxHit);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestHit = { key: node.boxKey, x: node.boxX, y: node.boxY };
+      }
+    }
+
+    return bestHit;
   }
 
-  _findBoxKeyFromObject(object) {
-    let current = object;
-    while (current) {
-      if (current.userData?.boxKey) {
-        return current.userData.boxKey;
-      }
-      current = current.parent;
+  _getCleanupDebrisIntersection() {
+    if (!this.floorData) {
+      return null;
     }
-    return null;
+
+    const allowedCleanupKeys = this.snapshot?.targeting?.cleanupKeys || null;
+    const targets = Object.values(this.debrisNodes).filter((debris) => {
+      if (!debris.visible) {
+        return false;
+      }
+      if (!allowedCleanupKeys) {
+        return true;
+      }
+      return allowedCleanupKeys.includes(debris.userData.debrisKey);
+    });
+
+    if (!targets.length) {
+      return null;
+    }
+
+    this.raycaster.setFromCamera(this._getRaycastPointer(), this.camera);
+    const [hit] = this.raycaster.intersectObjects(targets, false);
+    if (!hit?.object?.userData?.debrisKey) {
+      return null;
+    }
+
+    return {
+      key: hit.object.userData.debrisKey,
+      x: hit.object.userData.debrisX,
+      y: hit.object.userData.debrisY
+    };
   }
 
   _getQuestionOptionFromIntersection(intersection) {
@@ -1471,28 +2012,37 @@ class TowerRenderer {
     const ctx = this.questionContext;
     const width = this.questionCanvas.width;
     const height = this.questionCanvas.height;
-    const padding = 88;
+    const padding = 104;
     const innerWidth = width - padding * 2;
-    const optionGap = 20;
-    const optionHeight = 126;
+    const optionGap = 18;
+    const optionHeight = 114;
     const optionWidth = innerWidth;
-    const optionTop = height - padding - optionHeight * 4 - optionGap * 3 - 86;
+    const optionTop = height - padding - optionHeight * 4 - optionGap * 3 - 92;
     const selectedIndex = question.selectedIndex;
     const feedback = question.feedback;
 
     ctx.clearRect(0, 0, width, height);
 
-    const bg = ctx.createLinearGradient(0, 0, 0, height);
-    bg.addColorStop(0, 'rgba(72, 59, 37, 0.96)');
-    bg.addColorStop(1, 'rgba(38, 28, 18, 0.97)');
-    ctx.fillStyle = bg;
-    this._drawRoundedRect(ctx, 18, 18, width - 36, height - 36, 56);
+    const recess = ctx.createLinearGradient(0, 0, 0, height);
+    recess.addColorStop(0, 'rgba(12, 10, 8, 0.14)');
+    recess.addColorStop(0.5, 'rgba(42, 31, 22, 0.24)');
+    recess.addColorStop(1, 'rgba(8, 6, 5, 0.2)');
+    ctx.fillStyle = recess;
+    this._drawRoundedRect(ctx, 34, 34, width - 68, height - 68, 52);
     ctx.fill();
 
+    ctx.strokeStyle = 'rgba(188, 151, 100, 0.2)';
+    ctx.lineWidth = 4;
+    this._drawRoundedRect(ctx, 34, 34, width - 68, height - 68, 52);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(248, 221, 169, 0.08)';
+    ctx.lineWidth = 2;
+    this._drawRoundedRect(ctx, 54, 54, width - 108, height - 108, 40);
+    ctx.stroke();
+
     [
-      { x: width * 0.24, y: height * 0.32, r: 220, color: 'rgba(35, 55, 28, 0.16)' },
-      { x: width * 0.74, y: height * 0.78, r: 180, color: 'rgba(27, 21, 12, 0.24)' },
-      { x: width * 0.58, y: height * 0.18, r: 130, color: 'rgba(180, 118, 48, 0.08)' }
+      { x: width * 0.28, y: height * 0.22, r: 220, color: 'rgba(14, 11, 9, 0.14)' },
+      { x: width * 0.72, y: height * 0.72, r: 250, color: 'rgba(156, 110, 58, 0.08)' }
     ].forEach((stain) => {
       const gradient = ctx.createRadialGradient(stain.x, stain.y, 0, stain.x, stain.y, stain.r);
       gradient.addColorStop(0, stain.color);
@@ -1501,33 +2051,37 @@ class TowerRenderer {
       ctx.fillRect(0, 0, width, height);
     });
 
-    ctx.strokeStyle = 'rgba(182, 147, 86, 0.55)';
-    ctx.lineWidth = 6;
-    this._drawRoundedRect(ctx, 32, 32, width - 64, height - 64, 42);
+    ctx.strokeStyle = 'rgba(205, 170, 116, 0.12)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(padding, 190);
+    ctx.lineTo(width - padding, 190);
+    ctx.moveTo(padding, optionTop - 40);
+    ctx.lineTo(width - padding, optionTop - 40);
     ctx.stroke();
 
-    ctx.fillStyle = '#e2c58a';
-    ctx.font = '700 58px Georgia, serif';
+    ctx.fillStyle = 'rgba(222, 193, 138, 0.92)';
+    ctx.font = '700 54px Georgia, serif';
     ctx.textAlign = 'center';
     ctx.fillText(question.topic || 'Topic', width / 2, 112);
 
-    ctx.fillStyle = 'rgba(231, 215, 182, 0.78)';
-    ctx.font = '600 30px Georgia, serif';
+    ctx.fillStyle = 'rgba(230, 216, 185, 0.58)';
+    ctx.font = '600 28px Georgia, serif';
     ctx.fillText(question.level || '', width / 2, 164);
 
     ctx.textAlign = 'left';
-    ctx.fillStyle = '#f6ead4';
-    ctx.font = '600 44px Georgia, serif';
-    let cursorY = 248;
+    ctx.fillStyle = 'rgba(244, 235, 212, 0.94)';
+    ctx.font = '600 42px Georgia, serif';
+    let cursorY = 238;
     cursorY = this._drawWrappedText(ctx, question.text || '', padding, cursorY, innerWidth, 54, 3);
 
-    ctx.fillStyle = '#e8ca92';
-    ctx.font = '700 48px Georgia, serif';
-    cursorY += 22;
-    this._drawWrappedText(ctx, question.display || '', padding, cursorY, innerWidth, 56, 2);
+    ctx.fillStyle = 'rgba(235, 194, 124, 0.95)';
+    ctx.font = '700 46px Georgia, serif';
+    cursorY += 24;
+    this._drawWrappedText(ctx, question.display || '', padding, cursorY, innerWidth, 54, 2);
 
     this.questionOptionRects = [];
-    ctx.font = '600 34px Georgia, serif';
+    ctx.font = '600 32px Georgia, serif';
 
     question.options.forEach((option, index) => {
       const x = padding;
@@ -1537,40 +2091,40 @@ class TowerRenderer {
       const isWrong = selectedIndex !== null && index === selectedIndex && selectedIndex !== question.correctIndex;
 
       const fill = isCorrect
-        ? 'rgba(56, 97, 52, 0.94)'
+        ? 'rgba(56, 97, 52, 0.52)'
         : isWrong
-          ? 'rgba(104, 43, 35, 0.95)'
+          ? 'rgba(104, 43, 35, 0.56)'
           : hovered
-            ? 'rgba(118, 82, 33, 0.94)'
-            : 'rgba(55, 40, 24, 0.92)';
+            ? 'rgba(118, 82, 33, 0.46)'
+            : 'rgba(10, 8, 7, 0.16)';
       const stroke = isCorrect
-        ? 'rgba(169, 220, 158, 0.88)'
+        ? 'rgba(169, 220, 158, 0.84)'
         : isWrong
-          ? 'rgba(220, 148, 137, 0.82)'
+          ? 'rgba(220, 148, 137, 0.8)'
           : hovered
-            ? 'rgba(232, 198, 128, 0.86)'
-            : 'rgba(194, 163, 104, 0.26)';
+            ? 'rgba(232, 198, 128, 0.78)'
+            : 'rgba(194, 163, 104, 0.24)';
 
       ctx.fillStyle = fill;
-      this._drawRoundedRect(ctx, x, y, optionWidth, optionHeight, 22);
+      this._drawRoundedRect(ctx, x, y, optionWidth, optionHeight, 20);
       ctx.fill();
       ctx.strokeStyle = stroke;
       ctx.lineWidth = hovered ? 5 : 3;
-      this._drawRoundedRect(ctx, x, y, optionWidth, optionHeight, 22);
+      this._drawRoundedRect(ctx, x, y, optionWidth, optionHeight, 20);
       ctx.stroke();
 
-      ctx.fillStyle = '#f7efde';
-      ctx.font = '700 30px Georgia, serif';
-      ctx.fillText(`${index + 1}.`, x + 28, y + 46);
-      ctx.font = '600 34px Georgia, serif';
-      this._drawWrappedText(ctx, option || '', x + 86, y + 42, optionWidth - 116, 38, 2);
+      ctx.fillStyle = 'rgba(247, 239, 222, 0.95)';
+      ctx.font = '700 28px Georgia, serif';
+      ctx.fillText(`${index + 1}.`, x + 28, y + 42);
+      ctx.font = '600 32px Georgia, serif';
+      this._drawWrappedText(ctx, option || '', x + 84, y + 38, optionWidth - 116, 36, 2);
 
       this.questionOptionRects.push({ x, y, width: optionWidth, height: optionHeight });
     });
 
     if (feedback?.text) {
-      const feedbackY = height - padding - 26;
-      ctx.fillStyle = feedback.isCorrect ? '#cbe2ba' : '#efb7a8';
+      const feedbackY = height - padding - 18;
+      ctx.fillStyle = feedback.isCorrect ? 'rgba(203, 226, 186, 0.9)' : 'rgba(239, 183, 168, 0.92)';
       ctx.font = '700 26px Georgia, serif';
       ctx.textAlign = 'center';
       this._drawWrappedText(ctx, feedback.text, width / 2 - innerWidth / 2, feedbackY, innerWidth, 30, 2, 'center');
