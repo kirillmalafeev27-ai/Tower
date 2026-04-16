@@ -94,6 +94,12 @@ class AudioManager {
     this._tone(990, 'sine', 0.04, 0.15, 0.28);
   }
 
+  playBoxWarning() {
+    this._tone(168, 'triangle', 0.04, 0.32, 0);
+    this._tone(142, 'triangle', 0.035, 0.34, 0.18);
+    this._noiseBurst(0.08, 240, 0.025, 0.05);
+  }
+
   playFortify() {
     this._triad([220, 277, 330], 'triangle', 0.09, 0.34, 0.04);
   }

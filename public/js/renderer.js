@@ -14,7 +14,7 @@ class TowerRenderer {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.outputEncoding = THREE.sRGBEncoding;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 0.95;
+    this.renderer.toneMappingExposure = 0.84;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
@@ -36,8 +36,8 @@ class TowerRenderer {
     this.moteField = null;
     this.questionPlane = null;
     this.questionCanvas = document.createElement('canvas');
-    this.questionCanvas.width = 1024;
-    this.questionCanvas.height = 1024;
+    this.questionCanvas.width = 1536;
+    this.questionCanvas.height = 1536;
     this.questionContext = this.questionCanvas.getContext('2d');
     this.questionTexture = new THREE.CanvasTexture(this.questionCanvas);
     this.questionTexture.encoding = THREE.sRGBEncoding;
@@ -47,8 +47,9 @@ class TowerRenderer {
     this.questionHoverIndex = -1;
     this.questionSignature = '';
     this.raycaster = new THREE.Raycaster();
+    this.targetHoverBoxKey = null;
 
-    this.playerState = { x: 0, y: 0, facing: 0, lookMode: 'down', cameraYaw: 0 };
+    this.playerState = { x: 0, y: 0, facing: 0, lookMode: 'down', cameraYaw: 0, cameraPitch: 0 };
     this.playerTarget = new THREE.Vector3();
     this.playerRender = new THREE.Vector3();
     this.yaw = 0;
@@ -71,39 +72,199 @@ class TowerRenderer {
     return Promise.resolve();
   }
 
-  _createMaterials() {
-    this.floorMaterial = new THREE.MeshStandardMaterial({ color: 0x2b241a, roughness: 0.92, metalness: 0.03 });
-    this.floorInsetMaterial = new THREE.MeshStandardMaterial({ color: 0x1a1d15, roughness: 0.72, metalness: 0.02 });
-    this.floorEdgeMaterial = new THREE.MeshStandardMaterial({ color: 0x110f0c, roughness: 0.98, metalness: 0.01 });
-    this.puddleMaterial = new THREE.MeshStandardMaterial({ color: 0x222418, roughness: 0.14, metalness: 0.03, transparent: true, opacity: 0.82 });
-    this.hatchRingMaterial = new THREE.MeshStandardMaterial({ color: 0x4e412d, roughness: 0.82, metalness: 0.24 });
-    this.hatchVoidMaterial = new THREE.MeshBasicMaterial({ color: 0x010203 });
-    this.debrisMaterial = new THREE.MeshStandardMaterial({ color: 0x493827, roughness: 0.97, metalness: 0.03 });
-    this.wallMaterial = new THREE.MeshStandardMaterial({ color: 0x15160f, roughness: 0.97, metalness: 0.02 });
-    this.wallTrimMaterial = new THREE.MeshStandardMaterial({ color: 0x282117, roughness: 0.9, metalness: 0.03 });
-    this.ceilingMaterial = new THREE.MeshStandardMaterial({ color: 0x0d0c09, roughness: 0.95, metalness: 0.01 });
-    this.columnMaterial = new THREE.MeshStandardMaterial({ color: 0x1b1a13, roughness: 0.98, metalness: 0.02 });
-    this.mossMaterial = new THREE.MeshStandardMaterial({ color: 0x23311f, roughness: 1, metalness: 0, transparent: true, opacity: 0.68, side: THREE.DoubleSide });
-    this.torchBracketMaterial = new THREE.MeshStandardMaterial({ color: 0x3a3429, roughness: 0.64, metalness: 0.42 });
-    this.torchFlameMaterial = new THREE.MeshBasicMaterial({ color: 0xffa24a });
-    this.monsterMaterial = new THREE.MeshStandardMaterial({ color: 0x1a130f, emissive: 0x140904, roughness: 0.94, metalness: 0.01 });
-    this.monsterEyeMaterial = new THREE.MeshBasicMaterial({ color: 0xff8b3d });
+  _makeCanvasTexture(size, repeatX, repeatY, painter) {
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    painter(ctx, size);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(repeatX, repeatY);
+    texture.encoding = THREE.sRGBEncoding;
+    texture.minFilter = THREE.LinearMipmapLinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
+    texture.needsUpdate = true;
+    return texture;
+  }
 
-    this.boxMaterials = {
-      normal: new THREE.MeshStandardMaterial({ color: 0x5d4732, roughness: 0.95, metalness: 0.03 }),
-      light: new THREE.MeshStandardMaterial({ color: 0x71553a, roughness: 0.92, metalness: 0.02 }),
-      anchor: new THREE.MeshStandardMaterial({ color: 0x565149, roughness: 0.72, metalness: 0.28 }),
-      heavy: new THREE.MeshStandardMaterial({ color: 0x4f3c2d, roughness: 0.97, metalness: 0.03 }),
-      rotten: new THREE.MeshStandardMaterial({ color: 0x382a1d, roughness: 1, metalness: 0.01 }),
-      safe: new THREE.MeshStandardMaterial({ color: 0x6a593e, roughness: 0.84, metalness: 0.12 })
+  _hexToRgb(hex) {
+    return {
+      r: (hex >> 16) & 255,
+      g: (hex >> 8) & 255,
+      b: hex & 255
     };
   }
 
+  _rgba(hex, alpha = 1) {
+    const { r, g, b } = this._hexToRgb(hex);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  _makeStoneTexture({ base, dark, light, moss, seed = 0, repeatX = 1, repeatY = 1 }) {
+    return this._makeCanvasTexture(320, repeatX, repeatY, (ctx, size) => {
+      ctx.fillStyle = this._rgba(base);
+      ctx.fillRect(0, 0, size, size);
+
+      for (let index = 0; index < 1800; index += 1) {
+        const x = this._noise(index, seed, 3) * size;
+        const y = this._noise(index, seed, 5) * size;
+        const w = 4 + this._noise(index, seed, 7) * 24;
+        const h = 4 + this._noise(index, seed, 11) * 24;
+        const alpha = 0.03 + this._noise(index, seed, 13) * 0.08;
+        ctx.fillStyle = this._rgba(this._noise(index, seed, 17) > 0.52 ? dark : light, alpha);
+        ctx.fillRect(x, y, w, h);
+      }
+
+      for (let seamX = 0; seamX < size; seamX += size / 3) {
+        ctx.fillStyle = this._rgba(dark, 0.18);
+        ctx.fillRect(seamX + 1, 0, 3, size);
+      }
+      for (let seamY = 0; seamY < size; seamY += size / 3) {
+        ctx.fillStyle = this._rgba(dark, 0.14);
+        ctx.fillRect(0, seamY + 1, size, 3);
+      }
+
+      ctx.lineCap = 'round';
+      for (let crack = 0; crack < 34; crack += 1) {
+        const startX = this._noise(crack, seed, 19) * size;
+        const startY = this._noise(crack, seed, 23) * size;
+        const segments = 3 + Math.floor(this._noise(crack, seed, 29) * 4);
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        for (let segment = 0; segment < segments; segment += 1) {
+          const nx = startX + (this._noise(crack, segment, 31) - 0.5) * 120;
+          const ny = startY + (this._noise(crack, segment, 37) - 0.5) * 120;
+          ctx.lineTo(nx, ny);
+        }
+        ctx.strokeStyle = this._rgba(dark, 0.18);
+        ctx.lineWidth = 1 + this._noise(crack, seed, 41) * 2;
+        ctx.stroke();
+      }
+
+      for (let patch = 0; patch < 18; patch += 1) {
+        const x = this._noise(patch, seed, 43) * size;
+        const y = this._noise(patch, seed, 47) * size;
+        const radius = 18 + this._noise(patch, seed, 53) * 42;
+        const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
+        gradient.addColorStop(0, this._rgba(moss, 0.18));
+        gradient.addColorStop(1, this._rgba(moss, 0));
+        ctx.fillStyle = gradient;
+        ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+      }
+    });
+  }
+
+  _makeWoodTexture({ base, dark, light, seed = 0, repeatX = 1, repeatY = 1 }) {
+    return this._makeCanvasTexture(320, repeatX, repeatY, (ctx, size) => {
+      const gradient = ctx.createLinearGradient(0, 0, size, 0);
+      gradient.addColorStop(0, this._rgba(base));
+      gradient.addColorStop(0.5, this._rgba(light));
+      gradient.addColorStop(1, this._rgba(base));
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, size, size);
+
+      for (let band = 0; band < 18; band += 1) {
+        const x = band * (size / 18);
+        ctx.fillStyle = this._rgba(this._noise(band, seed, 3) > 0.48 ? dark : light, 0.18);
+        ctx.fillRect(x, 0, 4 + this._noise(band, seed, 5) * 10, size);
+      }
+
+      for (let line = 0; line < 120; line += 1) {
+        const y = this._noise(line, seed, 7) * size;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        for (let x = 0; x <= size; x += 18) {
+          ctx.lineTo(x, y + (this._noise(line, x, 11) - 0.5) * 8);
+        }
+        ctx.strokeStyle = this._rgba(dark, 0.14);
+        ctx.lineWidth = 1 + this._noise(line, seed, 13) * 1.2;
+        ctx.stroke();
+      }
+
+      for (let knot = 0; knot < 10; knot += 1) {
+        const x = 26 + this._noise(knot, seed, 17) * (size - 52);
+        const y = 26 + this._noise(knot, seed, 19) * (size - 52);
+        ctx.beginPath();
+        ctx.ellipse(x, y, 10 + this._noise(knot, seed, 23) * 12, 6 + this._noise(knot, seed, 29) * 8, this._noise(knot, seed, 31) * Math.PI, 0, Math.PI * 2);
+        ctx.fillStyle = this._rgba(dark, 0.24);
+        ctx.fill();
+      }
+    });
+  }
+
+  _makeMetalTexture({ base, dark, light, seed = 0, repeatX = 1, repeatY = 1 }) {
+    return this._makeCanvasTexture(256, repeatX, repeatY, (ctx, size) => {
+      const gradient = ctx.createLinearGradient(0, 0, size, size);
+      gradient.addColorStop(0, this._rgba(light));
+      gradient.addColorStop(0.5, this._rgba(base));
+      gradient.addColorStop(1, this._rgba(dark));
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, size, size);
+
+      for (let scratch = 0; scratch < 90; scratch += 1) {
+        const x = this._noise(scratch, seed, 3) * size;
+        const y = this._noise(scratch, seed, 5) * size;
+        const length = 10 + this._noise(scratch, seed, 7) * 46;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + length, y + length * 0.08);
+        ctx.strokeStyle = this._rgba(light, 0.16);
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+    });
+  }
+
+  _createMaterials() {
+    const floorStoneMap = this._makeStoneTexture({ base: 0x2b241a, dark: 0x120f0c, light: 0x4a3f31, moss: 0x2a3620, seed: 1, repeatX: 1.4, repeatY: 1.4 });
+    const floorInsetMap = this._makeStoneTexture({ base: 0x1a1d15, dark: 0x0a0d09, light: 0x30352b, moss: 0x1f301d, seed: 2, repeatX: 2.2, repeatY: 2.2 });
+    const wallStoneMap = this._makeStoneTexture({ base: 0x171811, dark: 0x090907, light: 0x2f3025, moss: 0x33432b, seed: 3, repeatX: 1.3, repeatY: 0.8 });
+    const trimStoneMap = this._makeStoneTexture({ base: 0x282117, dark: 0x110d09, light: 0x43362a, moss: 0x29341f, seed: 4, repeatX: 1.8, repeatY: 1.2 });
+    const ceilingStoneMap = this._makeStoneTexture({ base: 0x0d0c09, dark: 0x040403, light: 0x23201a, moss: 0x1d2619, seed: 5, repeatX: 1.1, repeatY: 1.1 });
+    const ironMap = this._makeMetalTexture({ base: 0x4e412d, dark: 0x2a241a, light: 0x7a6a52, seed: 6, repeatX: 1.5, repeatY: 1.5 });
+    const normalCrateMap = this._makeWoodTexture({ base: 0x5d4732, dark: 0x342518, light: 0x7b6041, seed: 7, repeatX: 1.8, repeatY: 1.4 });
+    const lightCrateMap = this._makeWoodTexture({ base: 0x71553a, dark: 0x402d1b, light: 0x94704c, seed: 8, repeatX: 1.8, repeatY: 1.4 });
+    const heavyCrateMap = this._makeWoodTexture({ base: 0x4f3c2d, dark: 0x2a1d14, light: 0x6a503b, seed: 9, repeatX: 1.2, repeatY: 1.1 });
+    const rottenCrateMap = this._makeWoodTexture({ base: 0x382a1d, dark: 0x17110b, light: 0x534030, seed: 10, repeatX: 1.6, repeatY: 1.3 });
+    const safeCrateMap = this._makeWoodTexture({ base: 0x6a593e, dark: 0x392d1d, light: 0x8c7653, seed: 11, repeatX: 1.4, repeatY: 1.2 });
+
+    this.floorMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: floorStoneMap, roughness: 0.64, metalness: 0.05 });
+    this.floorInsetMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: floorInsetMap, roughness: 0.48, metalness: 0.04 });
+    this.floorEdgeMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: wallStoneMap, roughness: 0.78, metalness: 0.03 });
+    this.puddleMaterial = new THREE.MeshStandardMaterial({ color: 0x222418, roughness: 0.05, metalness: 0.08, transparent: true, opacity: 0.9 });
+    this.hatchRingMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: ironMap, roughness: 0.36, metalness: 0.58 });
+    this.hatchVoidMaterial = new THREE.MeshBasicMaterial({ color: 0x010203 });
+    this.debrisMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: heavyCrateMap, roughness: 0.68, metalness: 0.05 });
+    this.wallMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: wallStoneMap, roughness: 0.8, metalness: 0.03 });
+    this.wallTrimMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: trimStoneMap, roughness: 0.58, metalness: 0.05 });
+    this.ceilingMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: ceilingStoneMap, roughness: 0.74, metalness: 0.02 });
+    this.columnMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: trimStoneMap, roughness: 0.76, metalness: 0.03 });
+    this.mossMaterial = new THREE.MeshStandardMaterial({ color: 0x23311f, roughness: 0.82, metalness: 0.02, transparent: true, opacity: 0.68, side: THREE.DoubleSide });
+    this.torchBracketMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: ironMap, roughness: 0.28, metalness: 0.76 });
+    this.torchFlameMaterial = new THREE.MeshBasicMaterial({ color: 0xffa24a });
+    this.monsterMaterial = new THREE.MeshStandardMaterial({ color: 0x1a130f, emissive: 0x140904, roughness: 0.7, metalness: 0.04 });
+    this.monsterEyeMaterial = new THREE.MeshBasicMaterial({ color: 0xff8b3d });
+
+    this.boxMaterials = {
+      normal: new THREE.MeshStandardMaterial({ color: 0xffffff, map: normalCrateMap, roughness: 0.54, metalness: 0.06 }),
+      light: new THREE.MeshStandardMaterial({ color: 0xffffff, map: lightCrateMap, roughness: 0.46, metalness: 0.05 }),
+      anchor: new THREE.MeshStandardMaterial({ color: 0xffffff, map: ironMap, roughness: 0.28, metalness: 0.72 }),
+      heavy: new THREE.MeshStandardMaterial({ color: 0xffffff, map: heavyCrateMap, roughness: 0.62, metalness: 0.08 }),
+      rotten: new THREE.MeshStandardMaterial({ color: 0xffffff, map: rottenCrateMap, roughness: 0.58, metalness: 0.03 }),
+      safe: new THREE.MeshStandardMaterial({ color: 0xffffff, map: safeCrateMap, roughness: 0.38, metalness: 0.18 })
+    };
+    this.floorRepairMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: heavyCrateMap, roughness: 0.56, metalness: 0.05 });
+    this.crateInteriorMaterial = new THREE.MeshStandardMaterial({ color: 0x0d0907, roughness: 0.72, metalness: 0.02 });
+  }
+
   _setupLights() {
-    this.ambient = new THREE.HemisphereLight(0x384732, 0x020302, 0.34);
+    this.ambient = new THREE.HemisphereLight(0x566452, 0x080907, 0.5);
     this.scene.add(this.ambient);
 
-    this.topLight = new THREE.DirectionalLight(0x77886a, 0.46);
+    this.topLight = new THREE.DirectionalLight(0x8c9a82, 0.72);
     this.topLight.position.set(-6, this.ceilingY + 5, -4);
     this.topLight.castShadow = true;
     this.topLight.shadow.mapSize.width = 1536;
@@ -113,11 +274,16 @@ class TowerRenderer {
     this.scene.add(this.topLight.target);
     this.scene.add(this.topLight);
 
-    this.fillLight = new THREE.PointLight(0x294330, 0.38, 52, 2);
+    this.rimLight = new THREE.DirectionalLight(0xc69162, 0.42);
+    this.rimLight.position.set(7, 4.8, 6);
+    this.scene.add(this.rimLight.target);
+    this.scene.add(this.rimLight);
+
+    this.fillLight = new THREE.PointLight(0x3a5646, 0.58, 56, 1.8);
     this.fillLight.position.set(0, 1.2, 0);
     this.scene.add(this.fillLight);
 
-    this.torchLight = new THREE.PointLight(0xe08a32, 1.65, 34, 1.8);
+    this.torchLight = new THREE.PointLight(0xe08a32, 2.05, 36, 1.8);
     this.torchLight.position.set(0, 3.2, 0);
     this.scene.add(this.torchLight);
 
@@ -149,6 +315,13 @@ class TowerRenderer {
     this.topLight.shadow.camera.bottom = -span;
     this.topLight.shadow.camera.updateProjectionMatrix();
     this.topLight.target.updateMatrixWorld();
+    this.rimLight.position.set(
+      center.x + floorData.config.width * this.cellSize * 0.22,
+      3.8,
+      center.z + floorData.config.height * this.cellSize * 0.18
+    );
+    this.rimLight.target.position.set(center.x, 1.6, center.z);
+    this.rimLight.target.updateMatrixWorld();
 
     this._buildTiles();
     this._buildWalls();
@@ -172,44 +345,67 @@ class TowerRenderer {
     this.questionOptionRects = [];
     this.questionHoverIndex = -1;
     this.questionSignature = '';
+    this.targetHoverBoxKey = null;
   }
 
   _buildTiles() {
     this.floorData.activeTiles.forEach((tile) => {
       const world = this.cellToWorld(tile.x, tile.y);
-      const slabHeight = 0.78;
+      const slabHeight = 0.94;
+      const tiltX = (this._noise(tile.x, tile.y, 3) - 0.5) * 0.045;
+      const tiltZ = (this._noise(tile.x, tile.y, 5) - 0.5) * 0.045;
       const slab = new THREE.Mesh(new THREE.BoxGeometry(this.cellSize, slabHeight, this.cellSize), this.floorEdgeMaterial.clone());
       slab.position.set(world.x, -slabHeight * 0.52, world.z);
       slab.castShadow = true;
       slab.receiveShadow = true;
       this.root.add(slab);
 
-      const stone = new THREE.Mesh(new THREE.BoxGeometry(this.cellSize * 0.92, 0.16, this.cellSize * 0.92), this.floorMaterial.clone());
-      stone.position.set(world.x, 0.02, world.z);
-      stone.rotation.y = (this._noise(tile.x, tile.y, 3) - 0.5) * 0.08;
+      const stoneHeight = 0.2 + this._noise(tile.x, tile.y, 7) * 0.08;
+      const stone = new THREE.Mesh(new THREE.BoxGeometry(this.cellSize * 0.95, stoneHeight, this.cellSize * 0.95), this.floorMaterial.clone());
+      stone.position.set(
+        world.x,
+        stoneHeight * 0.5 - 0.02 + this._noise(tile.x, tile.y, 9) * 0.04,
+        world.z
+      );
+      stone.rotation.x = tiltX;
+      stone.rotation.z = tiltZ;
+      stone.rotation.y = (this._noise(tile.x, tile.y, 11) - 0.5) * 0.08;
       stone.receiveShadow = true;
       this.root.add(stone);
 
-      const inset = new THREE.Mesh(new THREE.BoxGeometry(this.cellSize * 0.68, 0.08, this.cellSize * 0.68), this.floorInsetMaterial.clone());
-      inset.position.set(world.x, 0.12, world.z);
-      inset.rotation.y = (this._noise(tile.x, tile.y, 9) - 0.5) * 0.12;
-      inset.receiveShadow = true;
-      this.root.add(inset);
+      if (this._noise(tile.x, tile.y, 17) > 0.42) {
+        const crack = new THREE.Mesh(
+          new THREE.BoxGeometry(this.cellSize * 0.72, 0.04, 0.12 + this._noise(tile.x, tile.y, 19) * 0.08),
+          this.floorInsetMaterial.clone()
+        );
+        crack.position.set(
+          world.x + (this._noise(tile.x, tile.y, 23) - 0.5) * 0.3,
+          stone.position.y + stoneHeight * 0.5 + 0.01,
+          world.z + (this._noise(tile.x, tile.y, 29) - 0.5) * 0.3
+        );
+        crack.rotation.y = this._noise(tile.x, tile.y, 31) * Math.PI;
+        crack.receiveShadow = true;
+        this.root.add(crack);
+      }
 
-      if (this._noise(tile.x, tile.y, 17) > 0.58) {
-        const puddle = new THREE.Mesh(
-          new THREE.CylinderGeometry(this.cellSize * 0.26, this.cellSize * 0.32, 0.04, 18),
-          this.puddleMaterial.clone()
-        );
-        puddle.position.set(
-          world.x + (this._noise(tile.x, tile.y, 21) - 0.5) * 0.55,
-          0.1,
-          world.z + (this._noise(tile.x, tile.y, 27) - 0.5) * 0.55
-        );
-        puddle.scale.set(1, 1, 0.65 + this._noise(tile.x, tile.y, 29) * 0.45);
-        puddle.rotation.y = this._noise(tile.x, tile.y, 31) * Math.PI;
-        puddle.receiveShadow = true;
-        this.root.add(puddle);
+      if (this._noise(tile.x, tile.y, 37) > 0.64) {
+        const plankCount = 2 + Math.floor(this._noise(tile.x, tile.y, 41) * 2);
+        for (let index = 0; index < plankCount; index += 1) {
+          const plank = new THREE.Mesh(
+            new THREE.BoxGeometry(this.cellSize * 0.74, 0.08, 0.18),
+            this.floorRepairMaterial.clone()
+          );
+          plank.position.set(
+            world.x + (index - (plankCount - 1) * 0.5) * 0.18,
+            stone.position.y + stoneHeight * 0.5 + 0.05 + index * 0.01,
+            world.z + (this._noise(tile.x, index, 43) - 0.5) * 0.18
+          );
+          plank.rotation.y = Math.PI / 2 + (this._noise(tile.x, tile.y, 47) - 0.5) * 0.08;
+          plank.rotation.z = (this._noise(index, tile.y, 53) - 0.5) * 0.04;
+          plank.castShadow = true;
+          plank.receiveShadow = true;
+          this.root.add(plank);
+        }
       }
 
       this.floorNodes[tileKey(tile.x, tile.y)] = stone;
@@ -308,53 +504,405 @@ class TowerRenderer {
         : box.type === 'light'
           ? [1.72, 1.08, 1.58]
           : box.type === 'anchor'
-            ? [2.15, 1.58, 1.84]
-            : box.type === 'safe'
+          ? [2.15, 1.58, 1.84]
+          : box.type === 'safe'
               ? [2.12, 1.54, 1.88]
               : [1.96, 1.44, 1.7];
-      const body = new THREE.Mesh(new THREE.BoxGeometry(dims[0], dims[1], dims[2]), this.boxMaterials[box.type].clone());
-      body.position.y = 0;
-      body.castShadow = true;
-      body.receiveShadow = true;
-      group.add(body);
+      const emissiveMaterials = this._buildHorrorCrate(group, dims, box);
 
-      const lid = new THREE.Mesh(
-        new THREE.BoxGeometry(dims[0] * 0.96, 0.16, dims[2] * 0.96),
-        this.wallTrimMaterial.clone()
+      const baseY = this.ceilingY - dims[1] * 0.5 - 0.16;
+      const baseRotationX = (this._noise(box.x, box.y, 67) - 0.5) * 0.06;
+      const baseRotationZ = (this._noise(box.x, box.y, 71) - 0.5) * 0.09;
+      group.position.set(world.x, baseY, world.z);
+      group.rotation.x = baseRotationX;
+      group.rotation.z = baseRotationZ;
+      group.userData.boxKey = box.key;
+      group.traverse((child) => {
+        child.userData.boxKey = box.key;
+      });
+      this.root.add(group);
+      this.boxNodes[box.key] = {
+        group,
+        emissiveMaterials,
+        baseY,
+        baseRotationX,
+        baseRotationZ,
+        dropDirection: this._noise(box.x, box.y, 73) > 0.5 ? 1 : -1,
+        swaySeed: this._noise(box.x, box.y, 79) * Math.PI * 2
+      };
+    });
+  }
+
+  _getCrateStyleProfile(type) {
+    const profiles = {
+      normal: { panelDepth: 0.16, frameThickness: 0.12, frontBoards: 4, sideBoards: 3, lidBoards: 3, bandCount: 2, lean: 0.08, lidLift: 0.14, splinterCount: 3, gapFront: false, gapSide: false, lidBreakIndex: 1, faceCross: false },
+      light: { panelDepth: 0.12, frameThickness: 0.1, frontBoards: 3, sideBoards: 2, lidBoards: 3, bandCount: 1, lean: 0.14, lidLift: 0.24, splinterCount: 4, gapFront: true, gapSide: true, lidBreakIndex: 2, faceCross: false },
+      anchor: { panelDepth: 0.16, frameThickness: 0.16, frontBoards: 3, sideBoards: 3, lidBoards: 3, bandCount: 3, lean: 0.05, lidLift: 0.1, splinterCount: 2, gapFront: false, gapSide: false, lidBreakIndex: 1, faceCross: false, cageBars: true, chain: true },
+      heavy: { panelDepth: 0.18, frameThickness: 0.14, frontBoards: 4, sideBoards: 3, lidBoards: 4, bandCount: 3, lean: 0.06, lidLift: 0.12, splinterCount: 2, gapFront: false, gapSide: false, lidBreakIndex: 1, faceCross: true },
+      rotten: { panelDepth: 0.12, frameThickness: 0.1, frontBoards: 4, sideBoards: 3, lidBoards: 2, bandCount: 1, lean: 0.22, lidLift: 0.34, splinterCount: 6, gapFront: true, gapSide: true, lidBreakIndex: 0, faceCross: false, hangingBoard: true },
+      safe: { panelDepth: 0.15, frameThickness: 0.12, frontBoards: 3, sideBoards: 3, lidBoards: 3, bandCount: 2, lean: 0.05, lidLift: 0.08, splinterCount: 2, gapFront: false, gapSide: false, lidBreakIndex: 1, faceCross: false, safePlate: true }
+    };
+
+    return profiles[type] || profiles.normal;
+  }
+
+  _createCrateMaterialSet(box) {
+    const wood = this.boxMaterials[box.type].clone();
+    const trim = this.wallTrimMaterial.clone();
+    const metal = (box.type === 'anchor' || box.type === 'safe' ? this.hatchRingMaterial : this.torchBracketMaterial).clone();
+    const interior = this.crateInteriorMaterial.clone();
+
+    wood.roughness = Math.max(0.24, wood.roughness * 0.9);
+    wood.metalness = Math.min(0.18, wood.metalness + 0.03);
+    trim.roughness = Math.max(0.26, trim.roughness * 0.88);
+    trim.metalness = Math.min(0.14, trim.metalness + 0.02);
+    metal.roughness = Math.max(0.14, metal.roughness * 0.8);
+    metal.metalness = Math.min(0.85, metal.metalness + 0.08);
+
+    return { wood, trim, metal, interior };
+  }
+
+  _createShapedPlankGeometry(width, height, depth, shaping = {}) {
+    const geometry = new THREE.BoxGeometry(width, height, depth);
+    const positions = geometry.attributes.position;
+    const {
+      topInsetLeft = 0,
+      topInsetRight = 0,
+      bottomInsetLeft = 0,
+      bottomInsetRight = 0,
+      topLiftLeft = 0,
+      topLiftRight = 0,
+      bottomDropLeft = 0,
+      bottomDropRight = 0,
+      sideShear = 0
+    } = shaping;
+
+    for (let index = 0; index < positions.count; index += 1) {
+      let x = positions.getX(index);
+      let y = positions.getY(index);
+      const z = positions.getZ(index);
+
+      if (y > 0) {
+        if (x < 0) {
+          x += topInsetLeft;
+          y += topLiftLeft;
+        } else {
+          x -= topInsetRight;
+          y += topLiftRight;
+        }
+      } else if (x < 0) {
+        x += bottomInsetLeft;
+        y -= bottomDropLeft;
+      } else {
+        x -= bottomInsetRight;
+        y -= bottomDropRight;
+      }
+
+      positions.setXYZ(index, x + (z / Math.max(0.001, depth * 0.5)) * sideShear, y, z);
+    }
+
+    geometry.computeVertexNormals();
+    return geometry;
+  }
+
+  _buildHorrorCrate(group, dims, box) {
+    const [width, height, depth] = dims;
+    const halfW = width * 0.5;
+    const halfH = height * 0.5;
+    const halfD = depth * 0.5;
+    const profile = this._getCrateStyleProfile(box.type);
+    const materials = this._createCrateMaterialSet(box);
+    const emissiveMaterials = [materials.wood, materials.trim, materials.metal];
+
+    const cavity = new THREE.Mesh(
+      new THREE.BoxGeometry(width * 0.7, height * 0.76, depth * 0.7),
+      materials.interior
+    );
+    cavity.position.y = -0.04;
+    cavity.receiveShadow = true;
+    group.add(cavity);
+
+    [
+      { x: -1, z: -1 },
+      { x: 1, z: -1 },
+      { x: -1, z: 1 },
+      { x: 1, z: 1 }
+    ].forEach((corner, index) => {
+      const postHeight = height * (0.84 + this._noise(box.x + index, box.y, 171) * 0.18);
+      const post = new THREE.Mesh(
+        this._createShapedPlankGeometry(
+          profile.frameThickness,
+          postHeight,
+          profile.frameThickness,
+          {
+            topInsetLeft: profile.frameThickness * 0.12 * this._noise(index, box.x, 173),
+            topInsetRight: profile.frameThickness * 0.12 * this._noise(index, box.y, 179),
+            topLiftLeft: postHeight * 0.06 * this._noise(index, box.x + box.y, 181),
+            topLiftRight: postHeight * 0.06 * this._noise(index, box.x - box.y, 183)
+          }
+        ),
+        materials.trim
       );
-      lid.position.y = dims[1] * 0.5 - 0.12;
+      post.position.set(
+        corner.x * (halfW - profile.frameThickness * 0.55),
+        (this._noise(index, box.x, 191) - 0.5) * height * 0.06,
+        corner.z * (halfD - profile.frameThickness * 0.55)
+      );
+      post.rotation.x = (this._noise(index, box.y, 193) - 0.5) * profile.lean * 0.5;
+      post.rotation.z = (this._noise(index, box.x + box.y, 197) - 0.5) * profile.lean * 0.9;
+      post.castShadow = true;
+      post.receiveShadow = true;
+      group.add(post);
+    });
+
+    const frontGapIndex = profile.gapFront ? Math.min(profile.frontBoards - 1, Math.floor(this._noise(box.x, box.y, 199) * profile.frontBoards)) : -1;
+    const sideGapIndex = profile.gapSide ? Math.min(profile.sideBoards - 1, Math.floor(this._noise(box.y, box.x, 211) * profile.sideBoards)) : -1;
+
+    [
+      { name: 'front', direction: 1 },
+      { name: 'back', direction: -1 }
+    ].forEach((face, faceIndex) => {
+      const span = width - profile.frameThickness * 2.6;
+      const step = span / profile.frontBoards;
+      for (let index = 0; index < profile.frontBoards; index += 1) {
+        if (face.name === 'front' && index === frontGapIndex) {
+          continue;
+        }
+
+        const boardWidth = step * (0.78 + this._noise(faceIndex, index + box.x, 223) * 0.32);
+        let boardHeight = height * (0.7 + this._noise(faceIndex, index + box.y, 227) * 0.22);
+        let boardY = (this._noise(faceIndex, index + box.x + box.y, 229) - 0.5) * height * 0.08;
+        if (face.name === 'front' && index === ((frontGapIndex + 1) % profile.frontBoards) && profile.gapFront) {
+          boardHeight *= 0.7;
+          boardY -= height * 0.14;
+        }
+
+        const board = new THREE.Mesh(
+          this._createShapedPlankGeometry(
+            boardWidth,
+            boardHeight,
+            profile.panelDepth,
+            {
+              topInsetLeft: boardWidth * 0.07 * this._noise(index, box.x, 233),
+              topInsetRight: boardWidth * 0.08 * this._noise(index, box.y, 239),
+              bottomInsetLeft: boardWidth * 0.04 * this._noise(index, box.x + box.y, 241),
+              bottomInsetRight: boardWidth * 0.05 * this._noise(index, box.y - box.x, 251),
+              topLiftLeft: boardHeight * 0.08 * this._noise(index, faceIndex, 257),
+              topLiftRight: boardHeight * 0.1 * this._noise(index, face.direction, 263),
+              bottomDropLeft: boardHeight * 0.03 * this._noise(faceIndex, index, 269),
+              bottomDropRight: boardHeight * 0.04 * this._noise(faceIndex, box.x + index, 271),
+              sideShear: profile.panelDepth * (this._noise(index, face.direction, 277) - 0.5) * 0.45
+            }
+          ),
+          materials.wood
+        );
+        board.position.set(
+          -span * 0.5 + step * (index + 0.5) + (this._noise(index, faceIndex, 281) - 0.5) * 0.08,
+          boardY,
+          face.direction * (halfD - profile.panelDepth * 0.32 + (this._noise(faceIndex, index, 283) - 0.5) * 0.06)
+        );
+        board.rotation.z = (this._noise(index, face.direction, 293) - 0.5) * profile.lean;
+        board.rotation.y = face.direction * (this._noise(faceIndex, index + box.x, 307) - 0.5) * profile.lean * 0.8;
+        board.castShadow = true;
+        board.receiveShadow = true;
+        group.add(board);
+      }
+    });
+
+    [-1, 1].forEach((direction, sideIndex) => {
+      const span = height - profile.frameThickness * 2.4;
+      const step = span / profile.sideBoards;
+      for (let index = 0; index < profile.sideBoards; index += 1) {
+        if (index === sideGapIndex && box.type !== 'safe' && box.type !== 'anchor') {
+          continue;
+        }
+
+        const boardHeight = step * (0.7 + this._noise(direction, index + box.y, 313) * 0.28);
+        let boardWidth = depth * (0.62 + this._noise(direction, index + box.x, 317) * 0.16);
+        let boardY = -span * 0.5 + step * (index + 0.5) + (this._noise(index, direction, 331) - 0.5) * 0.05;
+        if (index === sideGapIndex && profile.gapSide) {
+          boardWidth *= 0.58;
+          boardY += step * 0.2;
+        }
+
+        const board = new THREE.Mesh(
+          this._createShapedPlankGeometry(
+            boardWidth,
+            boardHeight,
+            profile.panelDepth,
+            {
+              topInsetLeft: boardWidth * 0.06 * this._noise(index, sideIndex, 337),
+              topInsetRight: boardWidth * 0.05 * this._noise(index, box.y, 347),
+              bottomInsetLeft: boardWidth * 0.04 * this._noise(index, direction, 349),
+              bottomInsetRight: boardWidth * 0.03 * this._noise(box.x, index, 353),
+              topLiftLeft: boardHeight * 0.05 * this._noise(direction, index, 359),
+              topLiftRight: boardHeight * 0.07 * this._noise(sideIndex, box.x, 367),
+              sideShear: profile.panelDepth * (this._noise(index, sideIndex, 373) - 0.5) * 0.4
+            }
+          ),
+          materials.wood
+        );
+        board.position.set(
+          direction * (halfW - profile.panelDepth * 0.32 + (this._noise(index, sideIndex, 379) - 0.5) * 0.05),
+          boardY,
+          (this._noise(index, box.x + box.y, 383) - 0.5) * depth * 0.08
+        );
+        board.rotation.y = Math.PI / 2 + direction * (this._noise(index, direction, 389) - 0.5) * profile.lean * 0.8;
+        board.rotation.z = direction * (this._noise(index, sideIndex, 397) - 0.5) * profile.lean * 0.55;
+        board.castShadow = true;
+        board.receiveShadow = true;
+        group.add(board);
+      }
+    });
+
+    const lidSpan = depth - profile.frameThickness * 1.8;
+    const lidStep = lidSpan / profile.lidBoards;
+    for (let index = 0; index < profile.lidBoards; index += 1) {
+      const lifted = index === profile.lidBreakIndex;
+      const lid = new THREE.Mesh(
+        this._createShapedPlankGeometry(
+          width * (0.82 + this._noise(index, box.x, 401) * 0.14),
+          0.14 + this._noise(index, box.y, 409) * 0.08,
+          lidStep * (0.78 + this._noise(index, box.x + box.y, 419) * 0.22),
+          {
+            topInsetLeft: width * 0.02 * this._noise(index, box.x, 421),
+            topInsetRight: width * 0.03 * this._noise(index, box.y, 431),
+            topLiftLeft: lifted ? profile.lidLift * 0.32 : profile.lidLift * 0.08,
+            topLiftRight: lifted ? profile.lidLift * 0.2 : profile.lidLift * 0.06,
+            sideShear: lidStep * (this._noise(index, box.y, 433) - 0.5) * 0.18
+          }
+        ),
+        index === profile.lidBreakIndex ? materials.trim : materials.wood
+      );
+      lid.position.set(
+        (this._noise(index, box.x, 439) - 0.5) * 0.12,
+        halfH - 0.04 + (lifted ? profile.lidLift : this._noise(index, box.y, 443) * 0.04),
+        -lidSpan * 0.5 + lidStep * (index + 0.5) + (this._noise(index, box.x + box.y, 449) - 0.5) * 0.08
+      );
+      lid.rotation.x = lifted
+        ? -0.16 - this._noise(index, box.x, 457) * 0.18
+        : (this._noise(index, box.y, 461) - 0.5) * 0.08;
+      lid.rotation.z = (this._noise(index, box.x, 463) - 0.5) * (lifted ? 0.34 : 0.16);
+      lid.rotation.y = (this._noise(index, box.y, 467) - 0.5) * 0.1;
       lid.castShadow = true;
       lid.receiveShadow = true;
       group.add(lid);
+    }
+
+    for (let index = 0; index < profile.bandCount; index += 1) {
+      const y = -height * 0.24 + (profile.bandCount === 1 ? 0 : (index / (profile.bandCount - 1)) * height * 0.5) + (this._noise(index, box.x + box.y, 479) - 0.5) * 0.04;
+      [
+        new THREE.Mesh(new THREE.BoxGeometry(width + 0.14, 0.12, 0.1), materials.metal),
+        new THREE.Mesh(new THREE.BoxGeometry(width + 0.14, 0.12, 0.1), materials.metal),
+        new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.12, depth + 0.14), materials.metal),
+        new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.12, depth + 0.14), materials.metal)
+      ].forEach((band, bandIndex) => {
+        band.position.set(
+          bandIndex < 2 ? 0 : (bandIndex === 2 ? -halfW - 0.01 : halfW + 0.01),
+          y,
+          bandIndex === 0 ? halfD + 0.02 : bandIndex === 1 ? -halfD - 0.02 : 0
+        );
+        band.rotation.z = (this._noise(index, bandIndex + box.x, 487) - 0.5) * profile.lean * 0.35;
+        band.castShadow = true;
+        band.receiveShadow = true;
+        group.add(band);
+      });
+    }
+
+    if (profile.faceCross) {
+      [-1, 1].forEach((direction) => {
+        const diagA = new THREE.Mesh(
+          this._createShapedPlankGeometry(width * 0.78, 0.1, 0.09, { sideShear: 0.015 }),
+          materials.trim
+        );
+        diagA.position.set(0, 0.1, direction * (halfD + 0.04));
+        diagA.rotation.z = 0.56;
+        diagA.castShadow = true;
+        group.add(diagA);
+
+        const diagB = diagA.clone();
+        diagB.rotation.z = -0.56;
+        group.add(diagB);
+      });
+    }
+
+    if (profile.hangingBoard) {
+      const hanging = new THREE.Mesh(
+        this._createShapedPlankGeometry(width * 0.34, 0.12, profile.panelDepth, {
+          topInsetLeft: width * 0.02,
+          topInsetRight: width * 0.05,
+          topLiftLeft: 0.05
+        }),
+        materials.trim
+      );
+      hanging.position.set(-width * 0.08, -height * 0.08, halfD + 0.03);
+      hanging.rotation.x = 0.92;
+      hanging.rotation.z = -0.18;
+      hanging.castShadow = true;
+      group.add(hanging);
+    }
+
+    if (profile.cageBars) {
+      [-1, 1].forEach((xDirection) => {
+        [-1, 1].forEach((zDirection, index) => {
+          const bar = new THREE.Mesh(new THREE.BoxGeometry(0.08, height * 0.92, 0.08), materials.metal);
+          bar.position.set(xDirection * (halfW - 0.28), 0, zDirection * (halfD - 0.28));
+          bar.rotation.z = (this._noise(index, xDirection + zDirection, 491) - 0.5) * 0.06;
+          bar.castShadow = true;
+          group.add(bar);
+        });
+      });
+    }
+
+    if (profile.chain) {
+      for (let index = 0; index < 5; index += 1) {
+        const link = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.035, 5, 10), materials.metal);
+        link.position.set(0, halfH + 0.18 + index * 0.22, 0);
+        link.rotation.x = Math.PI / 2;
+        link.rotation.z = index % 2 === 0 ? 0 : Math.PI / 2;
+        link.castShadow = true;
+        group.add(link);
+      }
+    }
+
+    if (profile.safePlate) {
+      const plate = new THREE.Mesh(new THREE.BoxGeometry(width * 0.42, height * 0.44, 0.12), materials.metal);
+      plate.position.set(0, 0.04, halfD + 0.07);
+      plate.castShadow = true;
+      plate.receiveShadow = true;
+      group.add(plate);
+
+      const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.16, 8), materials.metal);
+      hub.rotation.x = Math.PI / 2;
+      hub.position.set(0, 0.04, halfD + 0.15);
+      hub.castShadow = true;
+      group.add(hub);
 
       [-1, 1].forEach((direction) => {
-        const strap = new THREE.Mesh(
-          new THREE.BoxGeometry(dims[0] + 0.08, 0.14, 0.12),
-          this.torchBracketMaterial.clone()
-        );
-        strap.position.set(0, 0.02, direction * (dims[2] * 0.5 - 0.18));
-        strap.castShadow = true;
-        group.add(strap);
+        const latch = new THREE.Mesh(new THREE.BoxGeometry(width * 0.18, 0.05, 0.05), materials.metal);
+        latch.position.set(direction * width * 0.12, 0.04, halfD + 0.17);
+        latch.castShadow = true;
+        group.add(latch);
       });
+    }
 
-      if (box.type === 'anchor') {
-        const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.065, 2.2, 10), this.boxMaterials.anchor.clone());
-        chain.position.y = 1.42;
-        chain.castShadow = true;
-        group.add(chain);
-      }
+    for (let index = 0; index < profile.splinterCount; index += 1) {
+      const splinter = new THREE.Mesh(
+        new THREE.ConeGeometry(0.05 + this._noise(index, box.x, 503) * 0.05, 0.28 + this._noise(index, box.y, 509) * 0.36, 5),
+        box.type === 'anchor' ? materials.metal : materials.trim
+      );
+      splinter.position.set(
+        (this._noise(index, box.x, 521) - 0.5) * width * 0.7,
+        (this._noise(index, box.y, 523) - 0.2) * height * 0.55,
+        (this._noise(index, box.x + box.y, 541) > 0.5 ? 1 : -1) * (halfD + 0.08)
+      );
+      splinter.rotation.x = 0.4 + this._noise(index, box.x, 547) * 1.2;
+      splinter.rotation.y = this._noise(index, box.y, 557) * Math.PI * 2;
+      splinter.castShadow = true;
+      group.add(splinter);
+    }
 
-      if (box.type === 'safe') {
-        const band = new THREE.Mesh(new THREE.BoxGeometry(dims[0] + 0.08, 0.16, dims[2] + 0.08), this.hatchRingMaterial.clone());
-        band.position.y = 0.05;
-        band.castShadow = true;
-        group.add(band);
-      }
-
-      group.position.set(world.x, this.ceilingY - dims[1] * 0.5 - 0.16, world.z);
-      this.root.add(group);
-      this.boxNodes[box.key] = { group, body };
-    });
+    return emissiveMaterials;
   }
 
   _buildDebris() {
@@ -433,11 +981,10 @@ class TowerRenderer {
       depthWrite: false
     });
     const plane = new THREE.Mesh(
-      new THREE.PlaneGeometry(this.cellSize * 0.94, this.cellSize * 0.94),
+      new THREE.PlaneGeometry(this.cellSize * 1.18, this.cellSize * 1.18),
       material
     );
-    plane.rotation.x = -Math.PI / 2;
-    plane.position.y = 0.17;
+    plane.position.y = this.eyeHeight - 0.04;
     plane.renderOrder = 4;
     plane.visible = false;
     this.root.add(plane);
@@ -582,7 +1129,9 @@ class TowerRenderer {
     const world = this.cellToWorld(player.x, player.y);
     this.playerTarget.set(world.x, this.eyeHeight, world.z);
     this.targetYaw = typeof player.cameraYaw === 'number' ? player.cameraYaw : this._getFacingYaw(player.facing);
-    this.targetPitch = this.snapshot?.question?.active ? -1.12 : player.lookMode === 'up' ? 0.96 : -0.28;
+    const pitchOffset = typeof player.cameraPitch === 'number' ? player.cameraPitch : 0;
+    const basePitch = this.snapshot?.question?.active ? -0.04 : player.lookMode === 'up' ? 0.54 : -0.08;
+    this.targetPitch = Math.max(-1.22, Math.min(1.18, basePitch + pitchOffset));
     if (instant) {
       this.playerRender.copy(this.playerTarget);
       this.yaw = this.targetYaw;
@@ -613,6 +1162,25 @@ class TowerRenderer {
   pickQuestionOption() {
     const intersection = this._getQuestionIntersection();
     return this._getQuestionOptionFromIntersection(intersection);
+  }
+
+  pickCeilingBox() {
+    const intersection = this._getCeilingBoxIntersection();
+    if (!intersection?.object) {
+      return null;
+    }
+
+    const boxKey = this._findBoxKeyFromObject(intersection.object);
+    if (!boxKey || !this.floorData?.boxes[boxKey]) {
+      return null;
+    }
+
+    const box = this.floorData.boxes[boxKey];
+    if (box.fallen) {
+      return null;
+    }
+
+    return { key: boxKey, x: box.x, y: box.y };
   }
 
   startLoop(updateCallback) {
@@ -651,7 +1219,7 @@ class TowerRenderer {
 
     const now = performance.now();
     const shake = now < this.shakeUntil ? this.shakeStrength : 0;
-    const bob = Math.sin(this.clock.elapsedTime * 6) * 0.01;
+    const bob = this.snapshot?.question?.active ? Math.sin(this.clock.elapsedTime * 6) * 0.002 : Math.sin(this.clock.elapsedTime * 6) * 0.01;
 
     this.camera.position.set(
       this.playerRender.x + (Math.random() - 0.5) * shake,
@@ -673,6 +1241,7 @@ class TowerRenderer {
     });
 
     this._updateQuestionHover();
+    this._updateTargetHover();
   }
 
   _applySnapshot() {
@@ -686,21 +1255,52 @@ class TowerRenderer {
         return;
       }
 
-      node.group.visible = !box.fallen;
-      if (!box.fallen) {
-        const ratio = box.stability / box.maxStability;
-        const material = node.body.material;
-        material.emissive.setHex(0x000000);
-        material.emissiveIntensity = 0;
-        if (box.revealUntil > now) {
-          const color = ratio >= 0.55 ? 0x4ea55b : ratio >= 0.28 ? 0xcaa43d : 0xb84334;
+      const isBreaking = box.fallAnimationUntil > now;
+      const breakProgress = isBreaking
+        ? 1 - ((box.fallAnimationUntil - now) / Math.max(1, box.fallAnimationUntil - box.fallAnimationStartedAt))
+        : 0;
+      const warningProgress = box.scheduledFallAt > now
+        ? 1 - ((box.scheduledFallAt - now) / Math.max(1, box.scheduledFallAt - box.warningStartedAt))
+        : 0;
+      const sway = warningProgress > 0
+        ? Math.sin(this.clock.elapsedTime * (12 + node.swaySeed) + node.swaySeed) * (0.04 + warningProgress * 0.12)
+        : 0;
+
+      node.group.visible = !box.fallen || isBreaking;
+      if (!node.group.visible) {
+        return;
+      }
+
+      node.group.position.set(
+        node.group.position.x,
+        node.baseY - breakProgress * 7.2 - Math.abs(sway) * 0.22,
+        node.group.position.z
+      );
+      node.group.rotation.x = node.baseRotationX + sway * 0.18 + breakProgress * 1.05;
+      node.group.rotation.z = node.baseRotationZ + sway + breakProgress * 1.35 * node.dropDirection;
+      node.group.scale.setScalar(1 - breakProgress * 0.18);
+
+      const ratio = box.stability / box.maxStability;
+      const applyEmissive = (color, intensity) => {
+        node.emissiveMaterials.forEach((material, index) => {
           material.emissive.setHex(color);
-          material.emissiveIntensity = 0.45;
-        }
-        if (box.fortifiedUntil > now) {
-          material.emissive.setHex(0x4a86c5);
-          material.emissiveIntensity = 0.62;
-        }
+          material.emissiveIntensity = intensity * (index === 2 ? 0.82 : 1);
+        });
+      };
+
+      applyEmissive(0x000000, 0);
+      if (box.revealUntil > now) {
+        const color = ratio >= 0.55 ? 0x4ea55b : ratio >= 0.28 ? 0xcaa43d : 0xb84334;
+        applyEmissive(color, 0.42);
+      }
+      if (warningProgress > 0) {
+        applyEmissive(0x5f2b12, 0.18 + warningProgress * 0.14);
+      }
+      if (box.fortifiedUntil > now) {
+        applyEmissive(0x4a86c5, 0.56);
+      }
+      if ((this.snapshot?.targeting?.mode === 'vision' || this.snapshot?.targeting?.mode === 'fortify') && this.targetHoverBoxKey === box.key) {
+        applyEmissive(this.snapshot.targeting.mode === 'fortify' ? 0x7db2e8 : 0xe8c88a, 0.64);
       }
     });
 
@@ -725,10 +1325,10 @@ class TowerRenderer {
     this.monsterGroup.rotation.x = monster.state === 'ceiling' ? Math.PI : 0;
     this.monsterGroup.scale.setScalar(monster.state === 'stunned' ? 1.12 : 1);
 
-    const pulse = 0.22 + Math.sin(this.clock.elapsedTime * 6) * 0.08;
+    const pulse = 0.08 + Math.sin(this.clock.elapsedTime * 4.8) * 0.03;
     this.monsterGroup.children.forEach((child, index) => {
       if (child.material && child.material.emissiveIntensity !== undefined) {
-        child.material.emissiveIntensity = 0.08 + pulse + index * 0.012;
+        child.material.emissiveIntensity = 0.035 + pulse + index * 0.004;
       }
     });
 
@@ -756,9 +1356,15 @@ class TowerRenderer {
     }
 
     const world = this.cellToWorld(player.x, player.y);
+    const panelYaw = typeof question.panelYaw === 'number' ? question.panelYaw : 0;
+    const forwardOffset = this.cellSize * 0.58;
     this.questionPlane.visible = true;
-    this.questionPlane.position.set(world.x, 0.17, world.z);
-    this.questionPlane.rotation.set(-Math.PI / 2, this.targetYaw, 0);
+    this.questionPlane.position.set(
+      world.x - Math.sin(panelYaw) * forwardOffset,
+      this.eyeHeight - 0.05,
+      world.z - Math.cos(panelYaw) * forwardOffset
+    );
+    this.questionPlane.rotation.set(-0.04, panelYaw, 0);
 
     const nextSignature = JSON.stringify({
       topic: question.topic,
@@ -794,6 +1400,20 @@ class TowerRenderer {
     }
   }
 
+  _updateTargetHover() {
+    const isTargetingBox = this.snapshot?.state === 'target_select'
+      && (this.snapshot?.targeting?.mode === 'vision' || this.snapshot?.targeting?.mode === 'fortify')
+      && this.snapshot?.player?.lookMode === 'up';
+
+    if (!isTargetingBox) {
+      this.targetHoverBoxKey = null;
+      return;
+    }
+
+    const picked = this.pickCeilingBox();
+    this.targetHoverBoxKey = picked?.key || null;
+  }
+
   _getQuestionIntersection() {
     if (!this.questionPlane?.visible) {
       return null;
@@ -802,6 +1422,31 @@ class TowerRenderer {
     this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
     const [intersection] = this.raycaster.intersectObject(this.questionPlane, false);
     return intersection || null;
+  }
+
+  _getCeilingBoxIntersection() {
+    if (!Object.keys(this.boxNodes).length) {
+      return null;
+    }
+
+    this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
+    const targets = Object.values(this.boxNodes).map((node) => node.group);
+    const intersections = this.raycaster.intersectObjects(targets, true);
+    return intersections.find((hit) => {
+      const boxKey = this._findBoxKeyFromObject(hit.object);
+      return boxKey && this.floorData?.boxes[boxKey] && !this.floorData.boxes[boxKey].fallen;
+    }) || null;
+  }
+
+  _findBoxKeyFromObject(object) {
+    let current = object;
+    while (current) {
+      if (current.userData?.boxKey) {
+        return current.userData.boxKey;
+      }
+      current = current.parent;
+    }
+    return null;
   }
 
   _getQuestionOptionFromIntersection(intersection) {
@@ -826,12 +1471,12 @@ class TowerRenderer {
     const ctx = this.questionContext;
     const width = this.questionCanvas.width;
     const height = this.questionCanvas.height;
-    const padding = 70;
+    const padding = 88;
     const innerWidth = width - padding * 2;
-    const optionGap = 22;
-    const optionHeight = 108;
-    const optionWidth = (innerWidth - optionGap) / 2;
-    const optionTop = height - padding - optionHeight * 2 - optionGap - 56;
+    const optionGap = 20;
+    const optionHeight = 126;
+    const optionWidth = innerWidth;
+    const optionTop = height - padding - optionHeight * 4 - optionGap * 3 - 86;
     const selectedIndex = question.selectedIndex;
     const feedback = question.feedback;
 
@@ -862,33 +1507,31 @@ class TowerRenderer {
     ctx.stroke();
 
     ctx.fillStyle = '#e2c58a';
-    ctx.font = '700 48px Georgia, serif';
+    ctx.font = '700 58px Georgia, serif';
     ctx.textAlign = 'center';
     ctx.fillText(question.topic || 'Topic', width / 2, 112);
 
     ctx.fillStyle = 'rgba(231, 215, 182, 0.78)';
-    ctx.font = '600 26px Georgia, serif';
-    ctx.fillText(question.level || '', width / 2, 152);
+    ctx.font = '600 30px Georgia, serif';
+    ctx.fillText(question.level || '', width / 2, 164);
 
     ctx.textAlign = 'left';
     ctx.fillStyle = '#f6ead4';
-    ctx.font = '600 36px Georgia, serif';
-    let cursorY = 230;
-    cursorY = this._drawWrappedText(ctx, question.text || '', padding, cursorY, innerWidth, 44, 4);
+    ctx.font = '600 44px Georgia, serif';
+    let cursorY = 248;
+    cursorY = this._drawWrappedText(ctx, question.text || '', padding, cursorY, innerWidth, 54, 3);
 
     ctx.fillStyle = '#e8ca92';
-    ctx.font = '700 40px Georgia, serif';
-    cursorY += 16;
-    this._drawWrappedText(ctx, question.display || '', padding, cursorY, innerWidth, 48, 3);
+    ctx.font = '700 48px Georgia, serif';
+    cursorY += 22;
+    this._drawWrappedText(ctx, question.display || '', padding, cursorY, innerWidth, 56, 2);
 
     this.questionOptionRects = [];
-    ctx.font = '600 28px Georgia, serif';
+    ctx.font = '600 34px Georgia, serif';
 
     question.options.forEach((option, index) => {
-      const column = index % 2;
-      const row = Math.floor(index / 2);
-      const x = padding + column * (optionWidth + optionGap);
-      const y = optionTop + row * (optionHeight + optionGap);
+      const x = padding;
+      const y = optionTop + index * (optionHeight + optionGap);
       const hovered = selectedIndex === null && this.questionHoverIndex === index;
       const isCorrect = selectedIndex !== null && index === question.correctIndex;
       const isWrong = selectedIndex !== null && index === selectedIndex && selectedIndex !== question.correctIndex;
@@ -917,10 +1560,10 @@ class TowerRenderer {
       ctx.stroke();
 
       ctx.fillStyle = '#f7efde';
-      ctx.font = '700 24px Georgia, serif';
-      ctx.fillText(`${index + 1}.`, x + 24, y + 38);
-      ctx.font = '600 28px Georgia, serif';
-      this._drawWrappedText(ctx, option || '', x + 70, y + 36, optionWidth - 94, 32, 2);
+      ctx.font = '700 30px Georgia, serif';
+      ctx.fillText(`${index + 1}.`, x + 28, y + 46);
+      ctx.font = '600 34px Georgia, serif';
+      this._drawWrappedText(ctx, option || '', x + 86, y + 42, optionWidth - 116, 38, 2);
 
       this.questionOptionRects.push({ x, y, width: optionWidth, height: optionHeight });
     });

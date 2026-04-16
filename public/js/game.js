@@ -10,6 +10,9 @@ const MONSTER_DROP_LOCK_MS = 1600;
 const QUAKE_WARNING_MS = 2500;
 const QUAKE_ACTIVE_MS = 5000;
 const FLOOR_TRANSITION_MS = 2200;
+const BOX_WARNING_MS = 3000;
+const BOX_BREAK_ANIM_MS = 900;
+const BOX_RANDOM_FALL_START_MS = 5000;
 
 const BOX_TYPES = {
   normal: { label: 'Обычный', stabilityRange: [45, 60], blocks: true },
@@ -153,13 +156,14 @@ class Game {
     this.currentFloor = 1;
     this.floorConfig = null;
     this.floorData = null;
-    this.player = { x: 0, y: 0, facing: 0, lookMode: 'down', cameraYaw: 0 };
+    this.player = { x: 0, y: 0, facing: 0, lookMode: 'down', cameraYaw: 0, cameraPitch: 0 };
     this.monster = null;
 
     this.currentSlotId = null;
     this.currentQuestion = null;
     this.questionFeedback = null;
     this.questionAnsweredIndex = null;
+    this.questionPanelYaw = 0;
     this.targetMode = null;
     this.targetSourceSlotId = null;
     this.movesLeft = 0;
@@ -182,7 +186,7 @@ class Game {
     this.floorTransitionTimeoutId = null;
     this.nextUiRefreshAt = 0;
     this.uiDirty = true;
-    this.cameraDrag = { active: false, pointerId: null, lastX: 0, moved: false };
+    this.cameraDrag = { active: false, pointerId: null, lastX: 0, lastY: 0, moved: false };
 
     this.ui = this._cacheUi();
     this._bindUi();
@@ -251,6 +255,7 @@ class Game {
       }
 
       const shouldAnswer = this.state === 'question' && !this.cameraDrag.moved;
+      const shouldSelectTarget = this.state === 'target_select' && !this.cameraDrag.moved;
       if (canvas.hasPointerCapture(event.pointerId)) {
         canvas.releasePointerCapture(event.pointerId);
       }
@@ -258,10 +263,16 @@ class Game {
       this.cameraDrag.active = false;
       this.cameraDrag.pointerId = null;
       this.cameraDrag.lastX = 0;
+      this.cameraDrag.lastY = 0;
       this.cameraDrag.moved = false;
 
       if (shouldAnswer) {
         this._answerQuestionFromView();
+        return;
+      }
+
+      if (shouldSelectTarget) {
+        this._selectTargetFromView();
       }
     };
 
@@ -273,6 +284,7 @@ class Game {
       this.cameraDrag.active = true;
       this.cameraDrag.pointerId = event.pointerId;
       this.cameraDrag.lastX = event.clientX;
+      this.cameraDrag.lastY = event.clientY;
       this.cameraDrag.moved = false;
       canvas.setPointerCapture(event.pointerId);
     });
@@ -283,13 +295,16 @@ class Game {
       }
 
       const deltaX = event.clientX - this.cameraDrag.lastX;
+      const deltaY = event.clientY - this.cameraDrag.lastY;
       this.cameraDrag.lastX = event.clientX;
-      if (Math.abs(deltaX) < 1.5) {
+      this.cameraDrag.lastY = event.clientY;
+      if (Math.abs(deltaX) < 0.75 && Math.abs(deltaY) < 0.75) {
         return;
       }
 
       this.cameraDrag.moved = true;
       this.adjustCameraYaw(-deltaX * 0.0125);
+      this.adjustCameraPitch(-deltaY * 0.0085);
     });
 
     canvas.addEventListener('pointerup', finishDrag);
@@ -326,7 +341,8 @@ class Game {
       y: this.floorData.start.y,
       facing: 0,
       lookMode: 'down',
-      cameraYaw: this._facingToYaw(0)
+      cameraYaw: this._facingToYaw(0),
+      cameraPitch: 0
     };
     this.monster = this._createMonsterState(this.floorData);
     this.currentFloorStartedAt = performance.now();
@@ -366,6 +382,7 @@ class Game {
     this.currentQuestion = null;
     this.questionFeedback = null;
     this.questionAnsweredIndex = null;
+    this.questionPanelYaw = 0;
     this.targetMode = null;
     this.targetSourceSlotId = null;
     this.slotCooldowns = Object.create(null);
@@ -400,7 +417,9 @@ class Game {
       boxes,
       debrisMap: Object.create(null),
       plannedQuakeTriggered: false,
-      lastPlayerMoveAt: performance.now()
+      lastPlayerMoveAt: performance.now(),
+      nextRandomFallAt: performance.now() + BOX_RANDOM_FALL_START_MS,
+      pendingFallBoxKey: null
     };
   }
 
@@ -494,6 +513,16 @@ class Game {
   _createBox(x, y, type) {
     const template = BOX_TYPES[type];
     const maxStability = randomInt(template.stabilityRange[0], template.stabilityRange[1]);
+    const stabilityFactorRanges = {
+      normal: [0.54, 0.92],
+      light: [0.42, 0.82],
+      anchor: [0.72, 1],
+      heavy: [0.66, 0.94],
+      rotten: [0.2, 0.56],
+      safe: [0.78, 1]
+    };
+    const [factorMin, factorMax] = stabilityFactorRanges[type] || [0.55, 0.9];
+    const stabilityFactor = factorMin + Math.random() * (factorMax - factorMin);
 
     return {
       key: tileKey(x, y),
@@ -501,9 +530,14 @@ class Game {
       y,
       type,
       maxStability,
-      stability: maxStability,
+      stability: Math.round(maxStability * stabilityFactor),
       revealUntil: 0,
       fortifiedUntil: 0,
+      warningStartedAt: 0,
+      warningUntil: 0,
+      scheduledFallAt: 0,
+      fallAnimationStartedAt: 0,
+      fallAnimationUntil: 0,
       fallen: false,
       fallCause: null,
       orientation: Math.random() > 0.5 ? 'horizontal' : 'vertical'
@@ -537,6 +571,7 @@ class Game {
     this._updateLookFreeze(now, deltaMs);
     this._updateQuake(now);
     this._updateBoxes(now, deltaSeconds);
+    this._updateRandomBoxFalls(now);
 
     if (this.state !== 'lost' && this.state !== 'won') {
       this._updateMonster(now);
@@ -559,7 +594,7 @@ class Game {
       this._markUiDirty();
     }
 
-    if (this.player.lookMode === 'up' && this.monster && this.monster.state === 'ceiling' && !this.lookFreezeCooldownUntil && this.lookFreezeBudgetMs > 0) {
+    if (this._isLookingAtCeilingMonster() && !this.lookFreezeCooldownUntil && this.lookFreezeBudgetMs > 0) {
       this.lookFreezeBudgetMs = Math.max(0, this.lookFreezeBudgetMs - deltaMs);
       if (this.lookFreezeBudgetMs === 0) {
         this.lookFreezeCooldownUntil = now + LOOK_FREEZE_COOLDOWN_MS;
@@ -597,9 +632,12 @@ class Game {
   }
 
   _updateBoxes(now, deltaSeconds) {
-    const multiplier = this.quake.phase === 'active' ? 4 : 1;
-
     Object.values(this.floorData.boxes).forEach((box) => {
+      if (box.fallAnimationUntil && now >= box.fallAnimationUntil) {
+        box.fallAnimationUntil = 0;
+        box.fallAnimationStartedAt = 0;
+      }
+
       if (box.fallen) {
         return;
       }
@@ -610,20 +648,82 @@ class Game {
       if (box.fortifiedUntil && now >= box.fortifiedUntil) {
         box.fortifiedUntil = 0;
       }
-      if (box.fortifiedUntil > now) {
+      if (box.warningUntil && now >= box.warningUntil && now < box.scheduledFallAt) {
+        box.warningUntil = 0;
+      }
+
+      if (box.fortifiedUntil > now && box.scheduledFallAt) {
+        this._clearBoxFallWarning(box);
+        if (this.floorData.pendingFallBoxKey === box.key) {
+          this.floorData.pendingFallBoxKey = null;
+          this.floorData.nextRandomFallAt = now + this._getRandomFallDelayMs();
+        }
+        this._markUiDirty();
+      }
+    });
+  }
+
+  _updateRandomBoxFalls(now) {
+    if (!this.floorData || this.state === 'lost' || this.state === 'won') {
+      return;
+    }
+
+    const pendingKey = this.floorData.pendingFallBoxKey;
+    if (pendingKey) {
+      const box = this.floorData.boxes[pendingKey];
+      if (!box || box.fallen) {
+        this.floorData.pendingFallBoxKey = null;
+        this.floorData.nextRandomFallAt = now + this._getRandomFallDelayMs();
         return;
       }
 
-      box.stability = Math.max(0, box.stability - deltaSeconds * multiplier);
-
-      if (box.type === 'rotten' && Math.random() < BOX_TYPES.rotten.faultPerSecond * deltaSeconds) {
-        box.stability = 0;
+      if (box.fortifiedUntil > now) {
+        this._clearBoxFallWarning(box);
+        this.floorData.pendingFallBoxKey = null;
+        this.floorData.nextRandomFallAt = now + this._getRandomFallDelayMs();
+        this._showMessage('Ящик выдержал треск и не сорвался.', 1100);
+        this._markUiDirty();
+        return;
       }
 
-      if (box.stability <= 0) {
-        this._dropBox(box, 'decay');
+      if (box.scheduledFallAt && now >= box.scheduledFallAt) {
+        this._dropBox(box, 'random');
+        this.floorData.pendingFallBoxKey = null;
+        this.floorData.nextRandomFallAt = now + this._getRandomFallDelayMs();
       }
-    });
+      return;
+    }
+
+    if (now < this.floorData.nextRandomFallAt) {
+      return;
+    }
+
+    const candidates = Object.values(this.floorData.boxes)
+      .filter((box) => !box.fallen && box.fortifiedUntil <= now && !box.scheduledFallAt);
+
+    if (!candidates.length) {
+      this.floorData.nextRandomFallAt = now + this._getRandomFallDelayMs();
+      return;
+    }
+
+    const sorted = [...candidates].sort((left, right) =>
+      (left.stability / left.maxStability) - (right.stability / right.maxStability)
+    );
+    const pool = sorted.slice(0, Math.max(3, Math.ceil(sorted.length * 0.45)));
+    const box = randomChoice(pool) || sorted[0];
+    box.warningStartedAt = now;
+    box.warningUntil = now + BOX_WARNING_MS;
+    box.scheduledFallAt = now + BOX_WARNING_MS;
+    this.floorData.pendingFallBoxKey = box.key;
+    this.audio.playBoxWarning();
+    this._markUiDirty();
+  }
+
+  _getRandomFallDelayMs() {
+    const base = Math.max(3800, 7600 - this.currentFloor * 620);
+    const variance = Math.max(1800, 3200 - this.currentFloor * 180);
+    const quakePressure = this.quake.phase === 'active' ? -900 : this.quake.phase === 'warning' ? -450 : 0;
+    return Math.max(2600, randomInt(base + quakePressure, base + variance + quakePressure));
   }
 
   _updateMonster(now) {
@@ -682,7 +782,50 @@ class Game {
   }
 
   _isCeilingMonsterFrozen(now) {
-    return this.monster.state === 'ceiling' && this.player.lookMode === 'up' && !this.lookFreezeCooldownUntil && this.lookFreezeBudgetMs > 0;
+    return this.monster.state === 'ceiling' && this._isLookingAtCeilingMonster() && !this.lookFreezeCooldownUntil && this.lookFreezeBudgetMs > 0;
+  }
+
+  _isLookingAtCeilingMonster() {
+    if (!this.renderer || !this.monster || this.monster.state !== 'ceiling' || this.player.lookMode !== 'up') {
+      return false;
+    }
+
+    if (this.monster.x === this.player.x && this.monster.y === this.player.y) {
+      return true;
+    }
+
+    const eye = this.renderer.cellToWorld(this.player.x, this.player.y);
+    eye.y = this.renderer.eyeHeight;
+
+    const monsterWorld = this.renderer.cellToWorld(this.monster.x, this.monster.y);
+    monsterWorld.y = this.renderer.ceilingY - 1.08;
+
+    const yaw = typeof this.player.cameraYaw === 'number'
+      ? this.player.cameraYaw
+      : this._facingToYaw(this.player.facing);
+    const pitchBase = this.player.lookMode === 'up' ? 0.54 : -0.08;
+    const pitch = clamp(pitchBase + (this.player.cameraPitch || 0), -1.22, 1.18);
+    const cosPitch = Math.cos(pitch);
+    const forward = {
+      x: -Math.sin(yaw) * cosPitch,
+      y: Math.sin(pitch),
+      z: -Math.cos(yaw) * cosPitch
+    };
+
+    const toMonster = {
+      x: monsterWorld.x - eye.x,
+      y: monsterWorld.y - eye.y,
+      z: monsterWorld.z - eye.z
+    };
+    const length = Math.hypot(toMonster.x, toMonster.y, toMonster.z);
+    if (length <= 0.0001) {
+      return true;
+    }
+
+    const alignment =
+      (forward.x * toMonster.x + forward.y * toMonster.y + forward.z * toMonster.z) / length;
+
+    return alignment >= 0.965;
   }
 
   _moveMonsterOnCeiling(now) {
@@ -799,10 +942,20 @@ class Game {
       return;
     }
 
+    const now = performance.now();
     box.fallen = true;
     box.fallCause = cause;
+    box.warningStartedAt = 0;
+    box.warningUntil = 0;
+    box.scheduledFallAt = 0;
+    box.fallAnimationStartedAt = now;
+    box.fallAnimationUntil = now + BOX_BREAK_ANIM_MS;
     this.audio.playBoxFall();
     this.renderer.shake(0.09, 360);
+
+    if (this.floorData.pendingFallBoxKey === box.key) {
+      this.floorData.pendingFallBoxKey = null;
+    }
 
     if (box.type === 'safe') {
       this._grantSafeReward();
@@ -910,6 +1063,16 @@ class Game {
     return box && !box.fallen ? box : null;
   }
 
+  _clearBoxFallWarning(box) {
+    if (!box) {
+      return;
+    }
+
+    box.warningStartedAt = 0;
+    box.warningUntil = 0;
+    box.scheduledFallAt = 0;
+  }
+
   setLookMode(mode) {
     if (this.state === 'loading' || this.state === 'won' || this.state === 'lost') {
       return;
@@ -946,6 +1109,16 @@ class Game {
     this._markUiDirty();
   }
 
+  adjustCameraPitch(deltaPitch) {
+    if (this.state === 'loading' || this.state === 'won' || this.state === 'lost') {
+      return;
+    }
+
+    const currentPitch = typeof this.player.cameraPitch === 'number' ? this.player.cameraPitch : 0;
+    this.player.cameraPitch = clamp(currentPitch + deltaPitch, -0.95, 1.05);
+    this._markUiDirty();
+  }
+
   selectTopic(slotId) {
     if (this.state !== 'topic_select') {
       return;
@@ -965,6 +1138,9 @@ class Game {
 
     this.currentSlotId = slotId;
     this.currentQuestion = question;
+    this.questionPanelYaw = typeof this.player.cameraYaw === 'number'
+      ? this.player.cameraYaw
+      : this._facingToYaw(this.player.facing);
     this.state = 'question';
     this._showQuestion(question);
     this._markUiDirty();
@@ -1026,6 +1202,24 @@ class Game {
     this.answerQuestion(selectedIndex);
   }
 
+  _selectTargetFromView() {
+    if (this.state !== 'target_select' || !this.renderer) {
+      return;
+    }
+
+    if (this.targetMode !== 'vision' && this.targetMode !== 'fortify') {
+      return;
+    }
+
+    const pickedBox = this.renderer.pickCeilingBox();
+    if (!pickedBox) {
+      this._showMessage('Наведите центр взгляда на ящик под потолком.', 1000);
+      return;
+    }
+
+    this.applyTargetSelection(pickedBox.x, pickedBox.y);
+  }
+
   _applyBonus(slotConfig) {
     const slot = slotConfig.slotDef;
     const now = performance.now();
@@ -1045,17 +1239,23 @@ class Game {
     }
 
     if (slot.bonus === 'vision') {
+      this.setLookMode('up');
       this.state = 'target_select';
       this.targetMode = 'vision';
       this.targetSourceSlotId = slot.id;
+      this._showTargetPanel('Наведите взгляд на ящик на потолке и подтвердите кликом. Подсветится зона 3x3 вокруг него на 10 секунд.', false);
+      return 'Верно. Наведите взгляд на нужный ящик.';
       this._showTargetPanel('Выберите центр области 3x3. Там вы увидите цветовую устойчивость ящиков на 10 секунд.');
       return 'Верно. Выберите зону для расширенного зрения.';
     }
 
     if (slot.bonus === 'fortify') {
+      this.setLookMode('up');
       this.state = 'target_select';
       this.targetMode = 'fortify';
       this.targetSourceSlotId = slot.id;
+      this._showTargetPanel('Наведите взгляд на ящик на потолке и подтвердите кликом. До шести ящиков вокруг него будут укреплены на 30 секунд.', false);
+      return 'Верно. Наведите взгляд на зону, которую хотите укрепить.';
       this._showTargetPanel('Выберите область 3x3. До шести ящиков в ней станут неуязвимыми на 30 секунд.');
       return 'Верно. Выберите зону для укрепления.';
     }
@@ -1235,7 +1435,15 @@ class Game {
 
     boxes.forEach((box) => {
       box.fortifiedUntil = now + FORTIFY_DURATION_MS;
+      if (box.scheduledFallAt) {
+        this._clearBoxFallWarning(box);
+      }
     });
+
+    if (this.floorData.pendingFallBoxKey && boxes.some((box) => box.key === this.floorData.pendingFallBoxKey)) {
+      this.floorData.pendingFallBoxKey = null;
+      this.floorData.nextRandomFallAt = now + this._getRandomFallDelayMs();
+    }
 
     this.slotCooldowns[this.targetSourceSlotId] = now + BONUS_SLOTS.find((slot) => slot.id === this.targetSourceSlotId).successCooldownMs;
     this.audio.playFortify();
@@ -1464,14 +1672,23 @@ class Game {
     });
   }
 
-  _showTargetPanel(prompt) {
+  _showTargetPanel(prompt, showGrid = true) {
     this._hidePanels();
     this.ui.targetPanel.classList.remove('hidden');
     this.ui.targetPrompt.textContent = prompt;
-    this._renderTargetGrid();
+    this.ui.targetGrid.classList.toggle('hidden', !showGrid);
+    if (showGrid) {
+      this._renderTargetGrid();
+    } else {
+      this.ui.targetGrid.innerHTML = '';
+    }
   }
 
   _renderTargetGrid() {
+    if (this.targetMode !== 'cleanup') {
+      return;
+    }
+
     const config = this.floorData.config;
     this.ui.targetGrid.innerHTML = '';
     this.ui.targetGrid.style.gridTemplateColumns = `repeat(${config.width}, minmax(0, 1fr))`;
@@ -1535,7 +1752,7 @@ class Game {
       this._showTopicPanel();
     } else if (this.state === 'action_select') {
       this._showActionPanel();
-    } else if (this.state === 'target_select') {
+    } else if (this.state === 'target_select' && this.targetMode === 'cleanup') {
       this._renderTargetGrid();
     }
   }
@@ -1577,6 +1794,9 @@ class Game {
     }
     if (Object.values(this.floorData.boxes).some((box) => box.fortifiedUntil > now)) {
       this.ui.statusEffects.appendChild(this._createStatusBadge('Укрепление активно', 'success'));
+    }
+    if (Object.values(this.floorData.boxes).some((box) => !box.fallen && box.scheduledFallAt > now)) {
+      this.ui.statusEffects.appendChild(this._createStatusBadge('Сверху что-то трещит', 'warning'));
     }
     if (this.monster.state === 'stunned') {
       this.ui.statusEffects.appendChild(this._createStatusBadge('Монстр оглушён', 'danger'));
@@ -1638,6 +1858,9 @@ class Game {
         if (box && !box.fallen && this.player.lookMode === 'up') {
           cell.classList.add('ceiling-box', `box-${box.type}`);
           const ratio = box.stability / box.maxStability;
+          if (box.scheduledFallAt > now) {
+            cell.classList.add('reveal-risk');
+          }
           if (box.revealUntil > now) {
             cell.classList.add(ratio >= 0.55 ? 'reveal-safe' : ratio >= 0.28 ? 'reveal-mid' : 'reveal-risk');
           }
@@ -1738,6 +1961,11 @@ class Game {
       player: this.player,
       monster: this.monster,
       quake: this.quake,
+      targeting: this.state === 'target_select'
+        ? {
+            mode: this.targetMode
+          }
+        : null,
       question: this.currentQuestion
         ? {
             active: this.state === 'question',
@@ -1748,7 +1976,8 @@ class Game {
             options: this.currentQuestion.options.options,
             correctIndex: this.currentQuestion.options.correctIndex,
             selectedIndex: this.questionAnsweredIndex,
-            feedback: this.questionFeedback
+            feedback: this.questionFeedback,
+            panelYaw: this.questionPanelYaw
           }
         : null
     });
