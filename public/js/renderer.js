@@ -265,9 +265,7 @@ class TowerRenderer {
       metalness: 0.02,
       clearcoat: 0.92,
       clearcoatRoughness: 0.12,
-      reflectivity: 0.42,
-      sheen: 0.4,
-      sheenColor: new THREE.Color(0x6fbf9a)
+      reflectivity: 0.42
     });
     this.monsterWetMaterial = new THREE.MeshPhysicalMaterial({
       color: 0x2e5446,
@@ -276,9 +274,7 @@ class TowerRenderer {
       metalness: 0.02,
       clearcoat: 1,
       clearcoatRoughness: 0.02,
-      reflectivity: 0.6,
-      sheen: 0.6,
-      sheenColor: new THREE.Color(0x9adcb6)
+      reflectivity: 0.6
     });
     this.monsterBoneMaterial = new THREE.MeshStandardMaterial({ color: 0xc2b39c, emissive: 0x201711, roughness: 0.6, metalness: 0.02 });
     this.monsterClawMaterial = new THREE.MeshStandardMaterial({ color: 0x53665e, emissive: 0x0d1612, roughness: 0.2, metalness: 0.08 });
