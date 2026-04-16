@@ -2,8 +2,8 @@ class TowerRenderer {
   constructor(canvas) {
     this.canvas = canvas;
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x050705);
-    this.scene.fog = new THREE.Fog(0x070905, 18, 82);
+    this.scene.background = new THREE.Color(0x050604);
+    this.scene.fog = new THREE.Fog(0x0a0c08, 12, 58);
 
     this.camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 160);
     this.camera.rotation.order = 'YXZ';
@@ -14,7 +14,7 @@ class TowerRenderer {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.outputEncoding = THREE.sRGBEncoding;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 0.84;
+    this.renderer.toneMappingExposure = 0.94;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
@@ -244,17 +244,17 @@ class TowerRenderer {
     const rottenCrateMap = this._makeWoodTexture({ base: 0x382a1d, dark: 0x17110b, light: 0x534030, seed: 10, repeatX: 1.6, repeatY: 1.3 });
     const safeCrateMap = this._makeWoodTexture({ base: 0x6a593e, dark: 0x392d1d, light: 0x8c7653, seed: 11, repeatX: 1.4, repeatY: 1.2 });
 
-    this.floorMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: floorStoneMap, roughness: 0.64, metalness: 0.05 });
-    this.floorInsetMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: floorInsetMap, roughness: 0.48, metalness: 0.04 });
-    this.floorEdgeMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: wallStoneMap, roughness: 0.78, metalness: 0.03 });
-    this.puddleMaterial = new THREE.MeshStandardMaterial({ color: 0x222418, roughness: 0.05, metalness: 0.08, transparent: true, opacity: 0.9 });
-    this.hatchRingMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: ironMap, roughness: 0.36, metalness: 0.58 });
-    this.hatchVoidMaterial = new THREE.MeshBasicMaterial({ color: 0x010203 });
-    this.debrisMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: heavyCrateMap, roughness: 0.68, metalness: 0.05 });
-    this.wallMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: wallStoneMap, roughness: 0.8, metalness: 0.03 });
-    this.wallTrimMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: trimStoneMap, roughness: 0.58, metalness: 0.05 });
-    this.ceilingMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: ceilingStoneMap, roughness: 0.74, metalness: 0.02 });
-    this.columnMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: trimStoneMap, roughness: 0.76, metalness: 0.03 });
+    this.floorMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: floorStoneMap, roughness: 0.68, metalness: 0.06 });
+    this.floorInsetMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: floorInsetMap, roughness: 0.4, metalness: 0.08 });
+    this.floorEdgeMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: wallStoneMap, roughness: 0.82, metalness: 0.04 });
+    this.puddleMaterial = new THREE.MeshStandardMaterial({ color: 0x141812, roughness: 0.04, metalness: 0.55, transparent: true, opacity: 0.92 });
+    this.hatchRingMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: ironMap, roughness: 0.32, metalness: 0.66 });
+    this.hatchVoidMaterial = new THREE.MeshBasicMaterial({ color: 0x010101 });
+    this.debrisMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: heavyCrateMap, roughness: 0.64, metalness: 0.06 });
+    this.wallMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: wallStoneMap, roughness: 0.88, metalness: 0.02 });
+    this.wallTrimMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: trimStoneMap, roughness: 0.54, metalness: 0.07 });
+    this.ceilingMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: ceilingStoneMap, roughness: 0.86, metalness: 0.02, emissive: 0x050403, emissiveIntensity: 0.35 });
+    this.columnMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: trimStoneMap, roughness: 0.74, metalness: 0.04 });
     this.mossMaterial = new THREE.MeshStandardMaterial({ color: 0x23311f, roughness: 0.82, metalness: 0.02, transparent: true, opacity: 0.68, side: THREE.DoubleSide });
     this.torchBracketMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: ironMap, roughness: 0.28, metalness: 0.76 });
     this.torchFlameMaterial = new THREE.MeshBasicMaterial({ color: 0xffa24a });
@@ -293,33 +293,36 @@ class TowerRenderer {
       safe: new THREE.MeshStandardMaterial({ color: 0xffffff, map: safeCrateMap, roughness: 0.38, metalness: 0.18 })
     };
     this.floorRepairMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: heavyCrateMap, roughness: 0.56, metalness: 0.05 });
-    this.crateInteriorMaterial = new THREE.MeshStandardMaterial({ color: 0x0d0907, roughness: 0.72, metalness: 0.02 });
+    this.crateInteriorMaterial = new THREE.MeshStandardMaterial({ color: 0x080503, roughness: 0.78, metalness: 0.02, emissive: 0x100804, emissiveIntensity: 0.22 });
   }
 
   _setupLights() {
-    this.ambient = new THREE.HemisphereLight(0x566452, 0x080907, 0.5);
+    this.ambient = new THREE.HemisphereLight(0x3d4c3e, 0x050604, 0.4);
     this.scene.add(this.ambient);
 
-    this.topLight = new THREE.DirectionalLight(0x8c9a82, 0.72);
+    this.topLight = new THREE.DirectionalLight(0xb7b093, 0.92);
     this.topLight.position.set(-6, this.ceilingY + 5, -4);
     this.topLight.castShadow = true;
-    this.topLight.shadow.mapSize.width = 1536;
-    this.topLight.shadow.mapSize.height = 1536;
+    this.topLight.shadow.mapSize.width = 2048;
+    this.topLight.shadow.mapSize.height = 2048;
     this.topLight.shadow.camera.near = 0.5;
     this.topLight.shadow.camera.far = this.ceilingY + 18;
+    this.topLight.shadow.bias = -0.0009;
+    this.topLight.shadow.normalBias = 0.04;
+    this.topLight.shadow.radius = 2.6;
     this.scene.add(this.topLight.target);
     this.scene.add(this.topLight);
 
-    this.rimLight = new THREE.DirectionalLight(0xc69162, 0.42);
+    this.rimLight = new THREE.DirectionalLight(0xd89a5a, 0.58);
     this.rimLight.position.set(7, 4.8, 6);
     this.scene.add(this.rimLight.target);
     this.scene.add(this.rimLight);
 
-    this.fillLight = new THREE.PointLight(0x3a5646, 0.58, 56, 1.8);
+    this.fillLight = new THREE.PointLight(0x365c48, 0.46, 56, 1.8);
     this.fillLight.position.set(0, 1.2, 0);
     this.scene.add(this.fillLight);
 
-    this.torchLight = new THREE.PointLight(0xe08a32, 2.05, 36, 1.8);
+    this.torchLight = new THREE.PointLight(0xf0a14a, 2.35, 38, 1.7);
     this.torchLight.position.set(0, 3.2, 0);
     this.scene.add(this.torchLight);
 
@@ -1535,15 +1538,22 @@ class TowerRenderer {
       torch.rotation.y = anchor.rot;
       this.root.add(torch);
 
-      const light = new THREE.PointLight(0xe5933a, 0.9, 14, 1.9);
+      const light = new THREE.PointLight(0xf2a14a, 1.6, 22, 1.7);
       light.position.set(anchor.x, anchor.y + 0.36, anchor.z);
       this.root.add(light);
-      this.wallTorches.push({ light, flame, seed: index * 1.37 });
+      const halo = new THREE.Mesh(
+        new THREE.SphereGeometry(0.22, 12, 10),
+        new THREE.MeshBasicMaterial({ color: 0xffb86a, transparent: true, opacity: 0.22, depthWrite: false })
+      );
+      halo.position.copy(flame.position);
+      halo.scale.set(1.8, 2.2, 1.8);
+      torch.add(halo);
+      this.wallTorches.push({ light, flame, halo, seed: index * 1.37 });
     });
   }
 
   _buildMoteField() {
-    const count = Math.max(36, this.floorData.activeTiles.length * 4);
+    const count = Math.max(72, this.floorData.activeTiles.length * 7);
     const config = this.floorData.config;
     const width = config.width * this.cellSize;
     const depth = config.height * this.cellSize;
@@ -1559,11 +1569,12 @@ class TowerRenderer {
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     const material = new THREE.PointsMaterial({
-      color: 0x68705f,
-      size: 0.12,
+      color: 0xb29772,
+      size: 0.08,
       transparent: true,
-      opacity: 0.16,
-      depthWrite: false
+      opacity: 0.28,
+      depthWrite: false,
+      sizeAttenuation: true
     });
     this.moteField = new THREE.Points(geometry, material);
     this.root.add(this.moteField);
@@ -1723,9 +1734,19 @@ class TowerRenderer {
     }
 
     this.wallTorches.forEach((torch) => {
-      const flicker = 0.82 + Math.sin(this.clock.elapsedTime * 5.2 + torch.seed) * 0.12;
-      torch.light.intensity = flicker;
-      torch.flame.scale.y = 1.45 + Math.sin(this.clock.elapsedTime * 7 + torch.seed * 1.7) * 0.18;
+      const slow = Math.sin(this.clock.elapsedTime * 5.2 + torch.seed);
+      const fast = Math.sin(this.clock.elapsedTime * 11.4 + torch.seed * 1.9);
+      torch.light.intensity = 1.45 + slow * 0.22 + fast * 0.1;
+      const hue = 0.075 + slow * 0.008;
+      torch.light.color.setHSL(hue, 0.78, 0.58);
+      torch.flame.scale.y = 1.5 + slow * 0.22 + fast * 0.06;
+      torch.flame.scale.x = 0.78 + fast * 0.05;
+      torch.flame.scale.z = 0.78 + fast * 0.05;
+      if (torch.halo) {
+        const haloPulse = 0.85 + slow * 0.12 + fast * 0.06;
+        torch.halo.scale.setScalar(1.9 * haloPulse);
+        torch.halo.material.opacity = 0.18 + slow * 0.05;
+      }
     });
 
     this._updateQuestionHover();
