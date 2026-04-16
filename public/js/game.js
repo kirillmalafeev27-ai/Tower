@@ -858,7 +858,7 @@ class Game {
       return;
     }
 
-    this.player.facing = (this.player.facing + direction + 4) % 4;
+    this.renderer.rotateCamera(-direction * Math.PI / 2);
     this._markUiDirty();
   }
 
@@ -1018,7 +1018,7 @@ class Game {
       return;
     }
 
-    const delta = this.renderer.getMoveDelta(relativeDirection, this.player.facing);
+    const delta = this.renderer.getMoveDelta(relativeDirection);
     const nextX = this.player.x + delta.x;
     const nextY = this.player.y + delta.y;
 
@@ -1401,7 +1401,7 @@ class Game {
     this.ui.actionPrompt.textContent = `Выберите направление. Действий осталось: ${this.movesLeft}.`;
 
     document.querySelectorAll('.dir-btn').forEach((button) => {
-      const delta = this.renderer.getMoveDelta(button.dataset.dir, this.player.facing);
+      const delta = this.renderer.getMoveDelta(button.dataset.dir);
       const nextX = this.player.x + delta.x;
       const nextY = this.player.y + delta.y;
       button.disabled = !this._isActiveTile(nextX, nextY) || this._isBlocked(nextX, nextY);
@@ -1625,7 +1625,7 @@ class Game {
   }
 
   _getFacingArrow() {
-    return ['↑', '→', '↓', '←'][this.player.facing] || '↑';
+    return ['↑', '→', '↓', '←'][this.renderer ? this.renderer.getCameraFacing() : 0] || '↑';
   }
 
   _createStatusBadge(text, kind) {
