@@ -36,8 +36,8 @@ class TowerRenderer {
     this.moteField = null;
     this.questionPlane = null;
     this.questionCanvas = document.createElement('canvas');
-    this.questionCanvas.width = 1024;
-    this.questionCanvas.height = 1024;
+    this.questionCanvas.width = 1536;
+    this.questionCanvas.height = 1536;
     this.questionContext = this.questionCanvas.getContext('2d');
     this.questionTexture = new THREE.CanvasTexture(this.questionCanvas);
     this.questionTexture.encoding = THREE.sRGBEncoding;
@@ -48,7 +48,7 @@ class TowerRenderer {
     this.questionSignature = '';
     this.raycaster = new THREE.Raycaster();
 
-    this.playerState = { x: 0, y: 0, facing: 0, lookMode: 'down', cameraYaw: 0 };
+    this.playerState = { x: 0, y: 0, facing: 0, lookMode: 'down', cameraYaw: 0, cameraPitch: 0 };
     this.playerTarget = new THREE.Vector3();
     this.playerRender = new THREE.Vector3();
     this.yaw = 0;
@@ -71,31 +71,189 @@ class TowerRenderer {
     return Promise.resolve();
   }
 
+  _makeCanvasTexture(size, repeatX, repeatY, painter) {
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    painter(ctx, size);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(repeatX, repeatY);
+    texture.encoding = THREE.sRGBEncoding;
+    texture.minFilter = THREE.LinearMipmapLinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
+    texture.needsUpdate = true;
+    return texture;
+  }
+
+  _hexToRgb(hex) {
+    return {
+      r: (hex >> 16) & 255,
+      g: (hex >> 8) & 255,
+      b: hex & 255
+    };
+  }
+
+  _rgba(hex, alpha = 1) {
+    const { r, g, b } = this._hexToRgb(hex);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  _makeStoneTexture({ base, dark, light, moss, seed = 0, repeatX = 1, repeatY = 1 }) {
+    return this._makeCanvasTexture(320, repeatX, repeatY, (ctx, size) => {
+      ctx.fillStyle = this._rgba(base);
+      ctx.fillRect(0, 0, size, size);
+
+      for (let index = 0; index < 1800; index += 1) {
+        const x = this._noise(index, seed, 3) * size;
+        const y = this._noise(index, seed, 5) * size;
+        const w = 4 + this._noise(index, seed, 7) * 24;
+        const h = 4 + this._noise(index, seed, 11) * 24;
+        const alpha = 0.03 + this._noise(index, seed, 13) * 0.08;
+        ctx.fillStyle = this._rgba(this._noise(index, seed, 17) > 0.52 ? dark : light, alpha);
+        ctx.fillRect(x, y, w, h);
+      }
+
+      for (let seamX = 0; seamX < size; seamX += size / 3) {
+        ctx.fillStyle = this._rgba(dark, 0.18);
+        ctx.fillRect(seamX + 1, 0, 3, size);
+      }
+      for (let seamY = 0; seamY < size; seamY += size / 3) {
+        ctx.fillStyle = this._rgba(dark, 0.14);
+        ctx.fillRect(0, seamY + 1, size, 3);
+      }
+
+      ctx.lineCap = 'round';
+      for (let crack = 0; crack < 34; crack += 1) {
+        const startX = this._noise(crack, seed, 19) * size;
+        const startY = this._noise(crack, seed, 23) * size;
+        const segments = 3 + Math.floor(this._noise(crack, seed, 29) * 4);
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        for (let segment = 0; segment < segments; segment += 1) {
+          const nx = startX + (this._noise(crack, segment, 31) - 0.5) * 120;
+          const ny = startY + (this._noise(crack, segment, 37) - 0.5) * 120;
+          ctx.lineTo(nx, ny);
+        }
+        ctx.strokeStyle = this._rgba(dark, 0.18);
+        ctx.lineWidth = 1 + this._noise(crack, seed, 41) * 2;
+        ctx.stroke();
+      }
+
+      for (let patch = 0; patch < 18; patch += 1) {
+        const x = this._noise(patch, seed, 43) * size;
+        const y = this._noise(patch, seed, 47) * size;
+        const radius = 18 + this._noise(patch, seed, 53) * 42;
+        const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
+        gradient.addColorStop(0, this._rgba(moss, 0.18));
+        gradient.addColorStop(1, this._rgba(moss, 0));
+        ctx.fillStyle = gradient;
+        ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+      }
+    });
+  }
+
+  _makeWoodTexture({ base, dark, light, seed = 0, repeatX = 1, repeatY = 1 }) {
+    return this._makeCanvasTexture(320, repeatX, repeatY, (ctx, size) => {
+      const gradient = ctx.createLinearGradient(0, 0, size, 0);
+      gradient.addColorStop(0, this._rgba(base));
+      gradient.addColorStop(0.5, this._rgba(light));
+      gradient.addColorStop(1, this._rgba(base));
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, size, size);
+
+      for (let band = 0; band < 18; band += 1) {
+        const x = band * (size / 18);
+        ctx.fillStyle = this._rgba(this._noise(band, seed, 3) > 0.48 ? dark : light, 0.18);
+        ctx.fillRect(x, 0, 4 + this._noise(band, seed, 5) * 10, size);
+      }
+
+      for (let line = 0; line < 120; line += 1) {
+        const y = this._noise(line, seed, 7) * size;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        for (let x = 0; x <= size; x += 18) {
+          ctx.lineTo(x, y + (this._noise(line, x, 11) - 0.5) * 8);
+        }
+        ctx.strokeStyle = this._rgba(dark, 0.14);
+        ctx.lineWidth = 1 + this._noise(line, seed, 13) * 1.2;
+        ctx.stroke();
+      }
+
+      for (let knot = 0; knot < 10; knot += 1) {
+        const x = 26 + this._noise(knot, seed, 17) * (size - 52);
+        const y = 26 + this._noise(knot, seed, 19) * (size - 52);
+        ctx.beginPath();
+        ctx.ellipse(x, y, 10 + this._noise(knot, seed, 23) * 12, 6 + this._noise(knot, seed, 29) * 8, this._noise(knot, seed, 31) * Math.PI, 0, Math.PI * 2);
+        ctx.fillStyle = this._rgba(dark, 0.24);
+        ctx.fill();
+      }
+    });
+  }
+
+  _makeMetalTexture({ base, dark, light, seed = 0, repeatX = 1, repeatY = 1 }) {
+    return this._makeCanvasTexture(256, repeatX, repeatY, (ctx, size) => {
+      const gradient = ctx.createLinearGradient(0, 0, size, size);
+      gradient.addColorStop(0, this._rgba(light));
+      gradient.addColorStop(0.5, this._rgba(base));
+      gradient.addColorStop(1, this._rgba(dark));
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, size, size);
+
+      for (let scratch = 0; scratch < 90; scratch += 1) {
+        const x = this._noise(scratch, seed, 3) * size;
+        const y = this._noise(scratch, seed, 5) * size;
+        const length = 10 + this._noise(scratch, seed, 7) * 46;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + length, y + length * 0.08);
+        ctx.strokeStyle = this._rgba(light, 0.16);
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+    });
+  }
+
   _createMaterials() {
-    this.floorMaterial = new THREE.MeshStandardMaterial({ color: 0x2b241a, roughness: 0.92, metalness: 0.03 });
-    this.floorInsetMaterial = new THREE.MeshStandardMaterial({ color: 0x1a1d15, roughness: 0.72, metalness: 0.02 });
-    this.floorEdgeMaterial = new THREE.MeshStandardMaterial({ color: 0x110f0c, roughness: 0.98, metalness: 0.01 });
+    const floorStoneMap = this._makeStoneTexture({ base: 0x2b241a, dark: 0x120f0c, light: 0x4a3f31, moss: 0x2a3620, seed: 1, repeatX: 1.4, repeatY: 1.4 });
+    const floorInsetMap = this._makeStoneTexture({ base: 0x1a1d15, dark: 0x0a0d09, light: 0x30352b, moss: 0x1f301d, seed: 2, repeatX: 2.2, repeatY: 2.2 });
+    const wallStoneMap = this._makeStoneTexture({ base: 0x171811, dark: 0x090907, light: 0x2f3025, moss: 0x33432b, seed: 3, repeatX: 1.3, repeatY: 0.8 });
+    const trimStoneMap = this._makeStoneTexture({ base: 0x282117, dark: 0x110d09, light: 0x43362a, moss: 0x29341f, seed: 4, repeatX: 1.8, repeatY: 1.2 });
+    const ceilingStoneMap = this._makeStoneTexture({ base: 0x0d0c09, dark: 0x040403, light: 0x23201a, moss: 0x1d2619, seed: 5, repeatX: 1.1, repeatY: 1.1 });
+    const ironMap = this._makeMetalTexture({ base: 0x4e412d, dark: 0x2a241a, light: 0x7a6a52, seed: 6, repeatX: 1.5, repeatY: 1.5 });
+    const normalCrateMap = this._makeWoodTexture({ base: 0x5d4732, dark: 0x342518, light: 0x7b6041, seed: 7, repeatX: 1.8, repeatY: 1.4 });
+    const lightCrateMap = this._makeWoodTexture({ base: 0x71553a, dark: 0x402d1b, light: 0x94704c, seed: 8, repeatX: 1.8, repeatY: 1.4 });
+    const heavyCrateMap = this._makeWoodTexture({ base: 0x4f3c2d, dark: 0x2a1d14, light: 0x6a503b, seed: 9, repeatX: 1.2, repeatY: 1.1 });
+    const rottenCrateMap = this._makeWoodTexture({ base: 0x382a1d, dark: 0x17110b, light: 0x534030, seed: 10, repeatX: 1.6, repeatY: 1.3 });
+    const safeCrateMap = this._makeWoodTexture({ base: 0x6a593e, dark: 0x392d1d, light: 0x8c7653, seed: 11, repeatX: 1.4, repeatY: 1.2 });
+
+    this.floorMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: floorStoneMap, roughness: 0.92, metalness: 0.03 });
+    this.floorInsetMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: floorInsetMap, roughness: 0.72, metalness: 0.02 });
+    this.floorEdgeMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: wallStoneMap, roughness: 0.98, metalness: 0.01 });
     this.puddleMaterial = new THREE.MeshStandardMaterial({ color: 0x222418, roughness: 0.14, metalness: 0.03, transparent: true, opacity: 0.82 });
-    this.hatchRingMaterial = new THREE.MeshStandardMaterial({ color: 0x4e412d, roughness: 0.82, metalness: 0.24 });
+    this.hatchRingMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: ironMap, roughness: 0.82, metalness: 0.24 });
     this.hatchVoidMaterial = new THREE.MeshBasicMaterial({ color: 0x010203 });
-    this.debrisMaterial = new THREE.MeshStandardMaterial({ color: 0x493827, roughness: 0.97, metalness: 0.03 });
-    this.wallMaterial = new THREE.MeshStandardMaterial({ color: 0x15160f, roughness: 0.97, metalness: 0.02 });
-    this.wallTrimMaterial = new THREE.MeshStandardMaterial({ color: 0x282117, roughness: 0.9, metalness: 0.03 });
-    this.ceilingMaterial = new THREE.MeshStandardMaterial({ color: 0x0d0c09, roughness: 0.95, metalness: 0.01 });
-    this.columnMaterial = new THREE.MeshStandardMaterial({ color: 0x1b1a13, roughness: 0.98, metalness: 0.02 });
+    this.debrisMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: heavyCrateMap, roughness: 0.97, metalness: 0.03 });
+    this.wallMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: wallStoneMap, roughness: 0.97, metalness: 0.02 });
+    this.wallTrimMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: trimStoneMap, roughness: 0.9, metalness: 0.03 });
+    this.ceilingMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: ceilingStoneMap, roughness: 0.95, metalness: 0.01 });
+    this.columnMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: trimStoneMap, roughness: 0.98, metalness: 0.02 });
     this.mossMaterial = new THREE.MeshStandardMaterial({ color: 0x23311f, roughness: 1, metalness: 0, transparent: true, opacity: 0.68, side: THREE.DoubleSide });
-    this.torchBracketMaterial = new THREE.MeshStandardMaterial({ color: 0x3a3429, roughness: 0.64, metalness: 0.42 });
+    this.torchBracketMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: ironMap, roughness: 0.64, metalness: 0.42 });
     this.torchFlameMaterial = new THREE.MeshBasicMaterial({ color: 0xffa24a });
     this.monsterMaterial = new THREE.MeshStandardMaterial({ color: 0x1a130f, emissive: 0x140904, roughness: 0.94, metalness: 0.01 });
     this.monsterEyeMaterial = new THREE.MeshBasicMaterial({ color: 0xff8b3d });
 
     this.boxMaterials = {
-      normal: new THREE.MeshStandardMaterial({ color: 0x5d4732, roughness: 0.95, metalness: 0.03 }),
-      light: new THREE.MeshStandardMaterial({ color: 0x71553a, roughness: 0.92, metalness: 0.02 }),
-      anchor: new THREE.MeshStandardMaterial({ color: 0x565149, roughness: 0.72, metalness: 0.28 }),
-      heavy: new THREE.MeshStandardMaterial({ color: 0x4f3c2d, roughness: 0.97, metalness: 0.03 }),
-      rotten: new THREE.MeshStandardMaterial({ color: 0x382a1d, roughness: 1, metalness: 0.01 }),
-      safe: new THREE.MeshStandardMaterial({ color: 0x6a593e, roughness: 0.84, metalness: 0.12 })
+      normal: new THREE.MeshStandardMaterial({ color: 0xffffff, map: normalCrateMap, roughness: 0.95, metalness: 0.03 }),
+      light: new THREE.MeshStandardMaterial({ color: 0xffffff, map: lightCrateMap, roughness: 0.92, metalness: 0.02 }),
+      anchor: new THREE.MeshStandardMaterial({ color: 0xffffff, map: ironMap, roughness: 0.72, metalness: 0.28 }),
+      heavy: new THREE.MeshStandardMaterial({ color: 0xffffff, map: heavyCrateMap, roughness: 0.97, metalness: 0.03 }),
+      rotten: new THREE.MeshStandardMaterial({ color: 0xffffff, map: rottenCrateMap, roughness: 1, metalness: 0.01 }),
+      safe: new THREE.MeshStandardMaterial({ color: 0xffffff, map: safeCrateMap, roughness: 0.84, metalness: 0.12 })
     };
   }
 
@@ -337,6 +495,41 @@ class TowerRenderer {
         group.add(strap);
       });
 
+      [-1, 1].forEach((direction) => {
+        const brace = new THREE.Mesh(
+          new THREE.BoxGeometry(0.12, dims[1] * 0.92, 0.16),
+          this.wallTrimMaterial.clone()
+        );
+        brace.position.set(direction * (dims[0] * 0.5 - 0.16), 0, 0);
+        brace.castShadow = true;
+        brace.receiveShadow = true;
+        group.add(brace);
+      });
+
+      [-1, 1].forEach((direction) => {
+        const frontBrace = new THREE.Mesh(
+          new THREE.BoxGeometry(dims[0] * 0.78, 0.12, 0.12),
+          this.wallTrimMaterial.clone()
+        );
+        frontBrace.position.set(0, 0.08, direction * (dims[2] * 0.5 - 0.12));
+        frontBrace.castShadow = true;
+        frontBrace.receiveShadow = true;
+        group.add(frontBrace);
+
+        const diagA = new THREE.Mesh(
+          new THREE.BoxGeometry(dims[0] * 0.78, 0.1, 0.1),
+          this.wallTrimMaterial.clone()
+        );
+        diagA.position.set(0, 0.18, direction * (dims[2] * 0.5 - 0.1));
+        diagA.rotation.z = 0.54;
+        diagA.castShadow = true;
+        group.add(diagA);
+
+        const diagB = diagA.clone();
+        diagB.rotation.z = -0.54;
+        group.add(diagB);
+      });
+
       if (box.type === 'anchor') {
         const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.065, 2.2, 10), this.boxMaterials.anchor.clone());
         chain.position.y = 1.42;
@@ -433,11 +626,11 @@ class TowerRenderer {
       depthWrite: false
     });
     const plane = new THREE.Mesh(
-      new THREE.PlaneGeometry(this.cellSize * 0.94, this.cellSize * 0.94),
+      new THREE.PlaneGeometry(this.cellSize * 1.18, this.cellSize * 1.18),
       material
     );
     plane.rotation.x = -Math.PI / 2;
-    plane.position.y = 0.17;
+    plane.position.y = 0.05;
     plane.renderOrder = 4;
     plane.visible = false;
     this.root.add(plane);
@@ -582,7 +775,9 @@ class TowerRenderer {
     const world = this.cellToWorld(player.x, player.y);
     this.playerTarget.set(world.x, this.eyeHeight, world.z);
     this.targetYaw = typeof player.cameraYaw === 'number' ? player.cameraYaw : this._getFacingYaw(player.facing);
-    this.targetPitch = this.snapshot?.question?.active ? -1.12 : player.lookMode === 'up' ? 0.96 : -0.28;
+    const pitchOffset = typeof player.cameraPitch === 'number' ? player.cameraPitch : 0;
+    const basePitch = this.snapshot?.question?.active ? -0.58 : player.lookMode === 'up' ? 0.54 : -0.08;
+    this.targetPitch = Math.max(-1.22, Math.min(1.02, basePitch + pitchOffset));
     if (instant) {
       this.playerRender.copy(this.playerTarget);
       this.yaw = this.targetYaw;
@@ -651,7 +846,7 @@ class TowerRenderer {
 
     const now = performance.now();
     const shake = now < this.shakeUntil ? this.shakeStrength : 0;
-    const bob = Math.sin(this.clock.elapsedTime * 6) * 0.01;
+    const bob = this.snapshot?.question?.active ? Math.sin(this.clock.elapsedTime * 6) * 0.002 : Math.sin(this.clock.elapsedTime * 6) * 0.01;
 
     this.camera.position.set(
       this.playerRender.x + (Math.random() - 0.5) * shake,
@@ -756,9 +951,15 @@ class TowerRenderer {
     }
 
     const world = this.cellToWorld(player.x, player.y);
+    const panelYaw = typeof question.panelYaw === 'number' ? question.panelYaw : 0;
+    const forwardOffset = this.cellSize * 0.18;
     this.questionPlane.visible = true;
-    this.questionPlane.position.set(world.x, 0.17, world.z);
-    this.questionPlane.rotation.set(-Math.PI / 2, this.targetYaw, 0);
+    this.questionPlane.position.set(
+      world.x + Math.sin(panelYaw) * forwardOffset,
+      0.05,
+      world.z + Math.cos(panelYaw) * forwardOffset
+    );
+    this.questionPlane.rotation.set(-Math.PI / 2, panelYaw, 0);
 
     const nextSignature = JSON.stringify({
       topic: question.topic,
@@ -826,12 +1027,12 @@ class TowerRenderer {
     const ctx = this.questionContext;
     const width = this.questionCanvas.width;
     const height = this.questionCanvas.height;
-    const padding = 70;
+    const padding = 88;
     const innerWidth = width - padding * 2;
-    const optionGap = 22;
-    const optionHeight = 108;
-    const optionWidth = (innerWidth - optionGap) / 2;
-    const optionTop = height - padding - optionHeight * 2 - optionGap - 56;
+    const optionGap = 20;
+    const optionHeight = 126;
+    const optionWidth = innerWidth;
+    const optionTop = height - padding - optionHeight * 4 - optionGap * 3 - 86;
     const selectedIndex = question.selectedIndex;
     const feedback = question.feedback;
 
@@ -862,33 +1063,31 @@ class TowerRenderer {
     ctx.stroke();
 
     ctx.fillStyle = '#e2c58a';
-    ctx.font = '700 48px Georgia, serif';
+    ctx.font = '700 58px Georgia, serif';
     ctx.textAlign = 'center';
     ctx.fillText(question.topic || 'Topic', width / 2, 112);
 
     ctx.fillStyle = 'rgba(231, 215, 182, 0.78)';
-    ctx.font = '600 26px Georgia, serif';
-    ctx.fillText(question.level || '', width / 2, 152);
+    ctx.font = '600 30px Georgia, serif';
+    ctx.fillText(question.level || '', width / 2, 164);
 
     ctx.textAlign = 'left';
     ctx.fillStyle = '#f6ead4';
-    ctx.font = '600 36px Georgia, serif';
-    let cursorY = 230;
-    cursorY = this._drawWrappedText(ctx, question.text || '', padding, cursorY, innerWidth, 44, 4);
+    ctx.font = '600 44px Georgia, serif';
+    let cursorY = 248;
+    cursorY = this._drawWrappedText(ctx, question.text || '', padding, cursorY, innerWidth, 54, 3);
 
     ctx.fillStyle = '#e8ca92';
-    ctx.font = '700 40px Georgia, serif';
-    cursorY += 16;
-    this._drawWrappedText(ctx, question.display || '', padding, cursorY, innerWidth, 48, 3);
+    ctx.font = '700 48px Georgia, serif';
+    cursorY += 22;
+    this._drawWrappedText(ctx, question.display || '', padding, cursorY, innerWidth, 56, 2);
 
     this.questionOptionRects = [];
-    ctx.font = '600 28px Georgia, serif';
+    ctx.font = '600 34px Georgia, serif';
 
     question.options.forEach((option, index) => {
-      const column = index % 2;
-      const row = Math.floor(index / 2);
-      const x = padding + column * (optionWidth + optionGap);
-      const y = optionTop + row * (optionHeight + optionGap);
+      const x = padding;
+      const y = optionTop + index * (optionHeight + optionGap);
       const hovered = selectedIndex === null && this.questionHoverIndex === index;
       const isCorrect = selectedIndex !== null && index === question.correctIndex;
       const isWrong = selectedIndex !== null && index === selectedIndex && selectedIndex !== question.correctIndex;
@@ -917,10 +1116,10 @@ class TowerRenderer {
       ctx.stroke();
 
       ctx.fillStyle = '#f7efde';
-      ctx.font = '700 24px Georgia, serif';
-      ctx.fillText(`${index + 1}.`, x + 24, y + 38);
-      ctx.font = '600 28px Georgia, serif';
-      this._drawWrappedText(ctx, option || '', x + 70, y + 36, optionWidth - 94, 32, 2);
+      ctx.font = '700 30px Georgia, serif';
+      ctx.fillText(`${index + 1}.`, x + 28, y + 46);
+      ctx.font = '600 34px Georgia, serif';
+      this._drawWrappedText(ctx, option || '', x + 86, y + 42, optionWidth - 116, 38, 2);
 
       this.questionOptionRects.push({ x, y, width: optionWidth, height: optionHeight });
     });

@@ -153,13 +153,14 @@ class Game {
     this.currentFloor = 1;
     this.floorConfig = null;
     this.floorData = null;
-    this.player = { x: 0, y: 0, facing: 0, lookMode: 'down', cameraYaw: 0 };
+    this.player = { x: 0, y: 0, facing: 0, lookMode: 'down', cameraYaw: 0, cameraPitch: 0 };
     this.monster = null;
 
     this.currentSlotId = null;
     this.currentQuestion = null;
     this.questionFeedback = null;
     this.questionAnsweredIndex = null;
+    this.questionPanelYaw = 0;
     this.targetMode = null;
     this.targetSourceSlotId = null;
     this.movesLeft = 0;
@@ -182,7 +183,7 @@ class Game {
     this.floorTransitionTimeoutId = null;
     this.nextUiRefreshAt = 0;
     this.uiDirty = true;
-    this.cameraDrag = { active: false, pointerId: null, lastX: 0, moved: false };
+    this.cameraDrag = { active: false, pointerId: null, lastX: 0, lastY: 0, moved: false };
 
     this.ui = this._cacheUi();
     this._bindUi();
@@ -258,6 +259,7 @@ class Game {
       this.cameraDrag.active = false;
       this.cameraDrag.pointerId = null;
       this.cameraDrag.lastX = 0;
+      this.cameraDrag.lastY = 0;
       this.cameraDrag.moved = false;
 
       if (shouldAnswer) {
@@ -273,6 +275,7 @@ class Game {
       this.cameraDrag.active = true;
       this.cameraDrag.pointerId = event.pointerId;
       this.cameraDrag.lastX = event.clientX;
+      this.cameraDrag.lastY = event.clientY;
       this.cameraDrag.moved = false;
       canvas.setPointerCapture(event.pointerId);
     });
@@ -283,13 +286,16 @@ class Game {
       }
 
       const deltaX = event.clientX - this.cameraDrag.lastX;
+      const deltaY = event.clientY - this.cameraDrag.lastY;
       this.cameraDrag.lastX = event.clientX;
-      if (Math.abs(deltaX) < 1.5) {
+      this.cameraDrag.lastY = event.clientY;
+      if (Math.abs(deltaX) < 0.75 && Math.abs(deltaY) < 0.75) {
         return;
       }
 
       this.cameraDrag.moved = true;
       this.adjustCameraYaw(-deltaX * 0.0125);
+      this.adjustCameraPitch(-deltaY * 0.0085);
     });
 
     canvas.addEventListener('pointerup', finishDrag);
@@ -326,7 +332,8 @@ class Game {
       y: this.floorData.start.y,
       facing: 0,
       lookMode: 'down',
-      cameraYaw: this._facingToYaw(0)
+      cameraYaw: this._facingToYaw(0),
+      cameraPitch: 0
     };
     this.monster = this._createMonsterState(this.floorData);
     this.currentFloorStartedAt = performance.now();
@@ -366,6 +373,7 @@ class Game {
     this.currentQuestion = null;
     this.questionFeedback = null;
     this.questionAnsweredIndex = null;
+    this.questionPanelYaw = 0;
     this.targetMode = null;
     this.targetSourceSlotId = null;
     this.slotCooldowns = Object.create(null);
@@ -946,6 +954,16 @@ class Game {
     this._markUiDirty();
   }
 
+  adjustCameraPitch(deltaPitch) {
+    if (this.state === 'loading' || this.state === 'won' || this.state === 'lost') {
+      return;
+    }
+
+    const currentPitch = typeof this.player.cameraPitch === 'number' ? this.player.cameraPitch : 0;
+    this.player.cameraPitch = clamp(currentPitch + deltaPitch, -0.95, 0.82);
+    this._markUiDirty();
+  }
+
   selectTopic(slotId) {
     if (this.state !== 'topic_select') {
       return;
@@ -965,6 +983,7 @@ class Game {
 
     this.currentSlotId = slotId;
     this.currentQuestion = question;
+    this.questionPanelYaw = this._facingToYaw(this._yawToFacing(this.player.cameraYaw ?? this._facingToYaw(this.player.facing)));
     this.state = 'question';
     this._showQuestion(question);
     this._markUiDirty();
@@ -1748,7 +1767,8 @@ class Game {
             options: this.currentQuestion.options.options,
             correctIndex: this.currentQuestion.options.correctIndex,
             selectedIndex: this.questionAnsweredIndex,
-            feedback: this.questionFeedback
+            feedback: this.questionFeedback,
+            panelYaw: this.questionPanelYaw
           }
         : null
     });
