@@ -32,6 +32,17 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
+function normalizeAngle(angle) {
+  let normalized = angle % (Math.PI * 2);
+  if (normalized > Math.PI) {
+    normalized -= Math.PI * 2;
+  }
+  if (normalized <= -Math.PI) {
+    normalized += Math.PI * 2;
+  }
+  return normalized;
+}
+
 function randomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
@@ -142,11 +153,13 @@ class Game {
     this.currentFloor = 1;
     this.floorConfig = null;
     this.floorData = null;
-    this.player = { x: 0, y: 0, facing: 0, lookMode: 'down' };
+    this.player = { x: 0, y: 0, facing: 0, lookMode: 'down', cameraYaw: 0 };
     this.monster = null;
 
     this.currentSlotId = null;
     this.currentQuestion = null;
+    this.questionFeedback = null;
+    this.questionAnsweredIndex = null;
     this.targetMode = null;
     this.targetSourceSlotId = null;
     this.movesLeft = 0;
@@ -169,6 +182,7 @@ class Game {
     this.floorTransitionTimeoutId = null;
     this.nextUiRefreshAt = 0;
     this.uiDirty = true;
+    this.cameraDrag = { active: false, pointerId: null, lastX: 0, moved: false };
 
     this.ui = this._cacheUi();
     this._bindUi();
@@ -195,18 +209,12 @@ class Game {
       statusEffects: document.getElementById('status-effects'),
       lookUpButton: document.getElementById('look-up-btn'),
       lookDownButton: document.getElementById('look-down-btn'),
-      provokeButton: document.getElementById('provoke-btn'),
       useHatchButton: document.getElementById('use-hatch-btn'),
       boardHeading: document.getElementById('board-heading'),
       boardPanel: document.getElementById('board-panel'),
       boardLegend: document.getElementById('board-legend'),
       topicPanel: document.getElementById('topic-panel'),
       topicButtons: document.getElementById('topic-buttons'),
-      questionPanel: document.getElementById('question-panel'),
-      questionTopicLabel: document.getElementById('question-topic-label'),
-      questionText: document.getElementById('question-text'),
-      questionOptions: document.getElementById('question-options'),
-      questionFeedback: document.getElementById('question-feedback'),
       actionPanel: document.getElementById('action-panel'),
       actionPrompt: document.getElementById('action-prompt'),
       targetPanel: document.getElementById('target-panel'),
@@ -223,7 +231,6 @@ class Game {
   _bindUi() {
     this.ui.lookUpButton.addEventListener('click', () => this.setLookMode('up'));
     this.ui.lookDownButton.addEventListener('click', () => this.setLookMode('down'));
-    this.ui.provokeButton.addEventListener('click', () => this.provokeMonster());
     this.ui.useHatchButton.addEventListener('click', () => this.tryUseHatch());
     this.ui.cancelTargetButton.addEventListener('click', () => this.cancelTargeting());
 
@@ -232,6 +239,61 @@ class Game {
         this.movePlayer(button.dataset.dir);
       });
     });
+
+    this._bindCanvasCameraControls();
+  }
+
+  _bindCanvasCameraControls() {
+    const canvas = this.ui.canvas;
+    const finishDrag = (event) => {
+      if (!this.cameraDrag.active || event.pointerId !== this.cameraDrag.pointerId) {
+        return;
+      }
+
+      const shouldAnswer = this.state === 'question' && !this.cameraDrag.moved;
+      if (canvas.hasPointerCapture(event.pointerId)) {
+        canvas.releasePointerCapture(event.pointerId);
+      }
+
+      this.cameraDrag.active = false;
+      this.cameraDrag.pointerId = null;
+      this.cameraDrag.lastX = 0;
+      this.cameraDrag.moved = false;
+
+      if (shouldAnswer) {
+        this._answerQuestionFromView();
+      }
+    };
+
+    canvas.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0 || this.state === 'loading' || this.state === 'won' || this.state === 'lost') {
+        return;
+      }
+
+      this.cameraDrag.active = true;
+      this.cameraDrag.pointerId = event.pointerId;
+      this.cameraDrag.lastX = event.clientX;
+      this.cameraDrag.moved = false;
+      canvas.setPointerCapture(event.pointerId);
+    });
+
+    canvas.addEventListener('pointermove', (event) => {
+      if (!this.cameraDrag.active || event.pointerId !== this.cameraDrag.pointerId) {
+        return;
+      }
+
+      const deltaX = event.clientX - this.cameraDrag.lastX;
+      this.cameraDrag.lastX = event.clientX;
+      if (Math.abs(deltaX) < 1.5) {
+        return;
+      }
+
+      this.cameraDrag.moved = true;
+      this.adjustCameraYaw(-deltaX * 0.0125);
+    });
+
+    canvas.addEventListener('pointerup', finishDrag);
+    canvas.addEventListener('pointercancel', finishDrag);
   }
 
   async init(settings, reuseQuestions = false, preserveRunProgress = false) {
@@ -259,7 +321,13 @@ class Game {
 
     this.floorData = this._createFloorRuntime(this.currentFloor);
     this.floorConfig = this.floorData.config;
-    this.player = { x: this.floorData.start.x, y: this.floorData.start.y, facing: 0, lookMode: 'down' };
+    this.player = {
+      x: this.floorData.start.x,
+      y: this.floorData.start.y,
+      facing: 0,
+      lookMode: 'down',
+      cameraYaw: this._facingToYaw(0)
+    };
     this.monster = this._createMonsterState(this.floorData);
     this.currentFloorStartedAt = performance.now();
 
@@ -296,6 +364,8 @@ class Game {
     this.movesLeft = 0;
     this.currentSlotId = null;
     this.currentQuestion = null;
+    this.questionFeedback = null;
+    this.questionAnsweredIndex = null;
     this.targetMode = null;
     this.targetSourceSlotId = null;
     this.slotCooldowns = Object.create(null);
@@ -744,7 +814,7 @@ class Game {
     });
 
     if (this.monster.state === 'ceiling' && this.monster.x === box.x && this.monster.y === box.y) {
-      this._sendMonsterToFloor(cause === 'provoked');
+      this._sendMonsterToFloor();
     }
 
     if (box.type === 'anchor') {
@@ -859,6 +929,20 @@ class Game {
     }
 
     this.player.facing = (this.player.facing + direction + 4) % 4;
+    this.player.cameraYaw = this._facingToYaw(this.player.facing);
+    this._markUiDirty();
+  }
+
+  adjustCameraYaw(deltaYaw) {
+    if (this.state === 'loading' || this.state === 'won' || this.state === 'lost') {
+      return;
+    }
+
+    const currentYaw = typeof this.player.cameraYaw === 'number'
+      ? this.player.cameraYaw
+      : this._facingToYaw(this.player.facing);
+    this.player.cameraYaw = normalizeAngle(currentYaw + deltaYaw);
+    this.player.facing = this._yawToFacing(this.player.cameraYaw);
     this._markUiDirty();
   }
 
@@ -887,7 +971,7 @@ class Game {
   }
 
   answerQuestion(selectedIndex) {
-    if (this.state !== 'question' || !this.currentQuestion) {
+    if (this.state !== 'question' || !this.currentQuestion || this.questionAnsweredIndex !== null) {
       return;
     }
 
@@ -899,16 +983,7 @@ class Game {
     const question = this.currentQuestion;
     const isCorrect = selectedIndex === question.options.correctIndex;
     this.questionsAnswered += 1;
-
-    const buttons = this.ui.questionOptions.querySelectorAll('.option-btn');
-    buttons.forEach((button, index) => {
-      button.disabled = true;
-      if (index === question.options.correctIndex) {
-        button.classList.add('correct');
-      } else if (index === selectedIndex) {
-        button.classList.add('wrong');
-      }
-    });
+    this.questionAnsweredIndex = selectedIndex;
 
     if (isCorrect) {
       this.questionsCorrect += 1;
@@ -936,6 +1011,19 @@ class Game {
       this._showTopicPanel();
       this._markUiDirty();
     }, 1100);
+  }
+
+  _answerQuestionFromView() {
+    if (this.state !== 'question' || !this.renderer) {
+      return;
+    }
+
+    const selectedIndex = this.renderer.pickQuestionOption();
+    if (selectedIndex === null) {
+      return;
+    }
+
+    this.answerQuestion(selectedIndex);
   }
 
   _applyBonus(slotConfig) {
@@ -1084,24 +1172,6 @@ class Game {
     }
 
     this._markUiDirty();
-  }
-
-  provokeMonster() {
-    if (!this.canProvokeMonster()) {
-      return;
-    }
-
-    const box = this._getLiveBox(this.monster.x, this.monster.y);
-    if (!box) {
-      return;
-    }
-
-    this._dropBox(box, 'provoked');
-    this._markUiDirty();
-  }
-
-  canProvokeMonster() {
-    return this.player.lookMode === 'up' && this.monster?.state === 'ceiling' && Boolean(this._getLiveBox(this.monster.x, this.monster.y));
   }
 
   cancelTargeting() {
@@ -1371,28 +1441,14 @@ class Game {
 
   _showQuestion(question) {
     this._hidePanels();
-    this.ui.questionPanel.classList.remove('hidden');
-    this.ui.questionFeedback.classList.add('hidden');
-    this.ui.questionFeedback.textContent = '';
-    this.ui.questionFeedback.classList.remove('correct', 'wrong');
-    this.ui.questionTopicLabel.textContent = `${question.grammarTopic} • ${question.level}`;
-    this.ui.questionText.innerHTML = `${this._escapeHtml(question.text)}<br><strong>${this._escapeHtml(question.display)}</strong>`;
-
-    this.ui.questionOptions.innerHTML = '';
-    question.options.options.forEach((option, index) => {
-      const button = document.createElement('button');
-      button.className = 'option-btn';
-      button.textContent = `${index + 1}. ${option}`;
-      button.addEventListener('click', () => this.answerQuestion(index));
-      this.ui.questionOptions.appendChild(button);
-    });
+    this.questionFeedback = null;
+    this.questionAnsweredIndex = null;
+    this._markUiDirty(true);
   }
 
   _showFeedback(isCorrect, text) {
-    this.ui.questionFeedback.classList.remove('hidden');
-    this.ui.questionFeedback.classList.toggle('correct', isCorrect);
-    this.ui.questionFeedback.classList.toggle('wrong', !isCorrect);
-    this.ui.questionFeedback.textContent = text;
+    this.questionFeedback = { isCorrect, text };
+    this._markUiDirty(true);
   }
 
   _showActionPanel() {
@@ -1458,7 +1514,6 @@ class Game {
 
   _hidePanels() {
     this.ui.topicPanel.classList.add('hidden');
-    this.ui.questionPanel.classList.add('hidden');
     this.ui.actionPanel.classList.add('hidden');
     this.ui.targetPanel.classList.add('hidden');
   }
@@ -1511,7 +1566,6 @@ class Game {
 
     this.ui.lookUpButton.classList.toggle('active', this.player.lookMode === 'up');
     this.ui.lookDownButton.classList.toggle('active', this.player.lookMode === 'down');
-    this.ui.provokeButton.classList.toggle('hidden', !this.canProvokeMonster());
     this.ui.useHatchButton.classList.toggle('hidden', !(this.state === 'action_select' && this._getCurrentHatch() && !this._getCurrentHatch().opened));
 
     this.ui.statusEffects.innerHTML = '';
@@ -1684,7 +1738,19 @@ class Game {
       player: this.player,
       monster: this.monster,
       quake: this.quake,
-      canProvoke: this.canProvokeMonster()
+      question: this.currentQuestion
+        ? {
+            active: this.state === 'question',
+            topic: this.currentQuestion.grammarTopic,
+            level: this.currentQuestion.level,
+            text: this.currentQuestion.text,
+            display: this.currentQuestion.display,
+            options: this.currentQuestion.options.options,
+            correctIndex: this.currentQuestion.options.correctIndex,
+            selectedIndex: this.questionAnsweredIndex,
+            feedback: this.questionFeedback
+          }
+        : null
     });
     this.audio.setThreatLevel(this._calculateThreatLevel(now));
   }
@@ -1697,6 +1763,14 @@ class Game {
     const quakePressure = this.quake.phase === 'warning' ? 0.22 : this.quake.phase === 'active' ? 0.4 : 0;
     const lookPressure = this.player.lookMode === 'down' ? 0.12 : 0;
     return clamp(hatchPressure * 0.18 + proximity * 0.5 + floorPressure + quakePressure + lookPressure, 0, 1);
+  }
+
+  _facingToYaw(facing) {
+    return [0, -Math.PI / 2, Math.PI, Math.PI / 2][facing] || 0;
+  }
+
+  _yawToFacing(yaw) {
+    return ((Math.round(-normalizeAngle(yaw) / (Math.PI / 2)) % 4) + 4) % 4;
   }
 
   _markUiDirty(force = false) {

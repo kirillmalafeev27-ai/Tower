@@ -169,12 +169,6 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    if (event.key === 'g' || event.key === 'G') {
-      event.preventDefault();
-      game.provokeMonster();
-      return;
-    }
-
     if (event.key === 'q' || event.key === 'Q') {
       event.preventDefault();
       game.rotateView(-1);
@@ -194,11 +188,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (game.state === 'question') {
-      const optionIndex = parseInt(event.key, 10) - 1;
-      if (optionIndex >= 0 && optionIndex <= 3) {
-        event.preventDefault();
-        game.answerQuestion(optionIndex);
-      }
       return;
     }
 
