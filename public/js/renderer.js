@@ -259,22 +259,26 @@ class TowerRenderer {
     this.torchBracketMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: ironMap, roughness: 0.28, metalness: 0.76 });
     this.torchFlameMaterial = new THREE.MeshBasicMaterial({ color: 0xffa24a });
     this.monsterMaterial = new THREE.MeshPhysicalMaterial({
-      color: 0x18231d,
-      emissive: 0x07100c,
-      roughness: 0.42,
+      color: 0x1b2c23,
+      emissive: 0x0b1a12,
+      roughness: 0.26,
       metalness: 0.02,
-      clearcoat: 0.72,
-      clearcoatRoughness: 0.22,
-      reflectivity: 0.32
+      clearcoat: 0.92,
+      clearcoatRoughness: 0.12,
+      reflectivity: 0.42,
+      sheen: 0.4,
+      sheenColor: new THREE.Color(0x6fbf9a)
     });
     this.monsterWetMaterial = new THREE.MeshPhysicalMaterial({
-      color: 0x274438,
-      emissive: 0x0a1712,
-      roughness: 0.12,
-      metalness: 0.01,
+      color: 0x2e5446,
+      emissive: 0x132a20,
+      roughness: 0.06,
+      metalness: 0.02,
       clearcoat: 1,
-      clearcoatRoughness: 0.04,
-      reflectivity: 0.48
+      clearcoatRoughness: 0.02,
+      reflectivity: 0.6,
+      sheen: 0.6,
+      sheenColor: new THREE.Color(0x9adcb6)
     });
     this.monsterBoneMaterial = new THREE.MeshStandardMaterial({ color: 0xc2b39c, emissive: 0x201711, roughness: 0.6, metalness: 0.02 });
     this.monsterClawMaterial = new THREE.MeshStandardMaterial({ color: 0x53665e, emissive: 0x0d1612, roughness: 0.2, metalness: 0.08 });
@@ -527,19 +531,24 @@ class TowerRenderer {
         : 0.08;
       const group = new THREE.Group();
       const apron = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.86, 0.86, 0.04, 32),
+        new THREE.CylinderGeometry(0.9, 0.9, 0.05, 32),
         this.floorInsetMaterial.clone()
       );
+      apron.material.color.offsetHSL(0.02, 0.04, -0.04);
       const ringMaterial = this.hatchRingMaterial.clone();
-      ringMaterial.roughness = 0.24;
-      ringMaterial.metalness = 0.76;
+      ringMaterial.roughness = 0.2;
+      ringMaterial.metalness = 0.82;
+      ringMaterial.emissive = new THREE.Color(0x3b2410);
+      ringMaterial.emissiveIntensity = 0.28;
       const innerRingMaterial = this.torchBracketMaterial.clone();
-      innerRingMaterial.roughness = 0.18;
-      innerRingMaterial.metalness = 0.82;
+      innerRingMaterial.roughness = 0.16;
+      innerRingMaterial.metalness = 0.86;
+      innerRingMaterial.emissive = new THREE.Color(0x512a0d);
+      innerRingMaterial.emissiveIntensity = 0.45;
       const lidMaterial = this.hatchRingMaterial.clone();
       lidMaterial.color.offsetHSL(0, -0.02, -0.14);
-      lidMaterial.roughness = 0.28;
-      lidMaterial.metalness = 0.7;
+      lidMaterial.roughness = 0.26;
+      lidMaterial.metalness = 0.72;
 
       const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.76, 0.76, 0.08, 32), ringMaterial);
       const lip = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.62, 0.05, 28), innerRingMaterial);
@@ -1386,23 +1395,26 @@ class TowerRenderer {
   _buildQuestionCard() {
     const group = new THREE.Group();
     const outerFrame = new THREE.Mesh(
-      new THREE.BoxGeometry(this.cellSize * 1.18, this.cellSize * 1.02, 0.14),
+      new THREE.BoxGeometry(this.cellSize * 1.12, this.cellSize * 0.96, 0.1),
       this.wallTrimMaterial.clone()
     );
     const plate = new THREE.Mesh(
-      new THREE.BoxGeometry(this.cellSize * 1.08, this.cellSize * 0.92, 0.07),
+      new THREE.BoxGeometry(this.cellSize * 1.04, this.cellSize * 0.88, 0.06),
       this.floorEdgeMaterial.clone()
     );
+    plate.material.color.offsetHSL(0.02, 0.04, 0.06);
     const innerFrame = new THREE.Mesh(
-      new THREE.BoxGeometry(this.cellSize * 1.1, this.cellSize * 0.94, 0.05),
+      new THREE.BoxGeometry(this.cellSize * 1.06, this.cellSize * 0.9, 0.04),
       this.floorInsetMaterial.clone()
     );
+    innerFrame.material.emissive = new THREE.Color(0x2a1906);
+    innerFrame.material.emissiveIntensity = 0.35;
     const glow = new THREE.Mesh(
-      new THREE.PlaneGeometry(this.cellSize * 1.2, this.cellSize * 1.04),
+      new THREE.PlaneGeometry(this.cellSize * 1.22, this.cellSize * 1.04),
       new THREE.MeshBasicMaterial({
-        color: 0xc58a3f,
+        color: 0xe1a35a,
         transparent: true,
-        opacity: 0.08,
+        opacity: 0.16,
         depthWrite: false,
         side: THREE.DoubleSide
       })
@@ -1410,13 +1422,15 @@ class TowerRenderer {
 
     const material = new THREE.MeshStandardMaterial({
       map: this.questionTexture,
-      color: 0xd8c594,
+      color: 0xf3e3c0,
       transparent: true,
       side: THREE.DoubleSide,
       depthWrite: false,
       alphaTest: 0.02,
-      roughness: 0.82,
+      roughness: 0.72,
       metalness: 0.02,
+      emissive: 0x1a1105,
+      emissiveIntensity: 0.4,
       polygonOffset: true,
       polygonOffsetFactor: -2,
       polygonOffsetUnits: -2
@@ -1801,23 +1815,23 @@ class TowerRenderer {
     });
 
     const monsterWorld = this.cellToWorld(monster.x, monster.y);
-    let targetY = monster.state === 'stunned' ? 0.84 : 0.9;
+    let targetY = monster.state === 'stunned' ? 0.72 : 0.78;
     if (monster.state === 'ceiling') {
       const attachedBox = this.boxNodes[tileKey(monster.x, monster.y)];
       targetY = attachedBox
-        ? attachedBox.group.position.y - attachedBox.boxHeight * 0.5 + 0.28
-        : this.ceilingY - 1.5;
+        ? attachedBox.group.position.y - attachedBox.boxHeight * 0.5 + 0.08
+        : this.ceilingY - 1.18;
     }
     this.monsterTarget.set(monsterWorld.x, targetY, monsterWorld.z);
-    this.monsterGroup.position.lerp(this.monsterTarget, 0.18);
+    this.monsterGroup.position.lerp(this.monsterTarget, 0.2);
     this.monsterGroup.rotation.x = monster.state === 'ceiling' ? Math.PI : 0;
-    this.monsterGroup.rotation.z = monster.state === 'ceiling' ? Math.sin(this.clock.elapsedTime * 2.4) * 0.06 : 0;
+    this.monsterGroup.rotation.z = monster.state === 'ceiling' ? Math.sin(this.clock.elapsedTime * 2.4) * 0.04 : 0;
     this.monsterGroup.scale.setScalar(
       monster.state === 'stunned'
-        ? 0.68
+        ? 0.5
         : monster.state === 'ceiling'
-          ? 0.82
-          : 0.76
+          ? 0.62
+          : 0.58
     );
 
     const pulse = 0.08 + Math.sin(this.clock.elapsedTime * 4.8) * 0.03;
@@ -1862,12 +1876,12 @@ class TowerRenderer {
 
     const world = this.cellToWorld(player.x, player.y);
     const panelYaw = typeof question.panelYaw === 'number' ? question.panelYaw : 0;
-    const forwardOffset = this.cellSize * 0.88;
-    const hoverLift = Math.sin(this.clock.elapsedTime * 4.2) * 0.02;
+    const forwardOffset = this.cellSize * 0.82;
+    const hoverLift = Math.sin(this.clock.elapsedTime * 4.2) * 0.015;
     this.questionPanelGroup.visible = true;
     this.questionPanelGroup.position.set(
       world.x - Math.sin(panelYaw) * forwardOffset,
-      this.eyeHeight - 0.1 + hoverLift,
+      this.eyeHeight - 0.06 + hoverLift,
       world.z - Math.cos(panelYaw) * forwardOffset
     );
     this.questionPanelGroup.rotation.set(0, panelYaw, 0);
