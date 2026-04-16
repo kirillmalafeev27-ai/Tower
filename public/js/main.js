@@ -169,12 +169,6 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    if (event.key === 'g' || event.key === 'G') {
-      event.preventDefault();
-      game.provokeMonster();
-      return;
-    }
-
     if (event.key === 'q' || event.key === 'Q') {
       event.preventDefault();
       game.rotateView(-1);
@@ -358,6 +352,10 @@ document.addEventListener('DOMContentLoaded', () => {
       }))
     };
   }
+
+  document.getElementById('game-canvas').addEventListener('click', (event) => {
+    game.handleCanvasClick(event);
+  });
 
   function startGame(settings) {
     setActiveScreen('game-screen');

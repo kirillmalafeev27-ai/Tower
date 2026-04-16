@@ -195,7 +195,7 @@ class Game {
       statusEffects: document.getElementById('status-effects'),
       lookUpButton: document.getElementById('look-up-btn'),
       lookDownButton: document.getElementById('look-down-btn'),
-      provokeButton: document.getElementById('provoke-btn'),
+      provokeButton: document.getElementById('provoke-btn') || document.createElement('button'),
       useHatchButton: document.getElementById('use-hatch-btn'),
       boardHeading: document.getElementById('board-heading'),
       boardPanel: document.getElementById('board-panel'),
@@ -223,7 +223,6 @@ class Game {
   _bindUi() {
     this.ui.lookUpButton.addEventListener('click', () => this.setLookMode('up'));
     this.ui.lookDownButton.addEventListener('click', () => this.setLookMode('down'));
-    this.ui.provokeButton.addEventListener('click', () => this.provokeMonster());
     this.ui.useHatchButton.addEventListener('click', () => this.tryUseHatch());
     this.ui.cancelTargetButton.addEventListener('click', () => this.cancelTargeting());
 
@@ -309,6 +308,7 @@ class Game {
       this.questionsAnswered = 0;
       this.questionsCorrect = 0;
       this.runOpenedHatches = 0;
+      this.boxDurabilityMultiplier = 0.6 + Math.random() * 0.8;
     }
   }
 
@@ -423,7 +423,8 @@ class Game {
 
   _createBox(x, y, type) {
     const template = BOX_TYPES[type];
-    const maxStability = randomInt(template.stabilityRange[0], template.stabilityRange[1]);
+    const baseStability = randomInt(template.stabilityRange[0], template.stabilityRange[1]);
+    const maxStability = Math.max(10, Math.round(baseStability * (this.boxDurabilityMultiplier || 1)));
 
     return {
       key: tileKey(x, y),
@@ -899,22 +900,18 @@ class Game {
     const question = this.currentQuestion;
     const isCorrect = selectedIndex === question.options.correctIndex;
     this.questionsAnswered += 1;
+    this.currentQuestion = null;
 
-    const buttons = this.ui.questionOptions.querySelectorAll('.option-btn');
-    buttons.forEach((button, index) => {
-      button.disabled = true;
-      if (index === question.options.correctIndex) {
-        button.classList.add('correct');
-      } else if (index === selectedIndex) {
-        button.classList.add('wrong');
-      }
-    });
+    if (this.renderer) {
+      this.renderer.showAnswerFeedback(selectedIndex, question.options.correctIndex);
+    }
 
     if (isCorrect) {
       this.questionsCorrect += 1;
       this.audio.playCorrectAnswer();
       this.questionManager.onCorrectAnswer(this.currentSlotId);
-      this._showFeedback(true, this._applyBonus(slotConfig));
+      const feedbackText = this._applyBonus(slotConfig);
+      this._showMessage(feedbackText, 2000);
       return;
     }
 
@@ -926,7 +923,7 @@ class Game {
     }
 
     const correctAnswer = question.options.options[question.options.correctIndex];
-    this._showFeedback(false, `Неверно. Правильный ответ: ${correctAnswer}`);
+    this._showMessage(`Неверно. Правильный ответ: ${correctAnswer}`, 2000);
     this._clearTransitionTimeout();
     this.transitionTimeoutId = window.setTimeout(() => {
       if (this.state === 'lost' || this.state === 'won') {
@@ -1086,22 +1083,24 @@ class Game {
     this._markUiDirty();
   }
 
-  provokeMonster() {
-    if (!this.canProvokeMonster()) {
+  handleCanvasClick(event) {
+    if (!this.renderer) {
       return;
     }
 
-    const box = this._getLiveBox(this.monster.x, this.monster.y);
-    if (!box) {
+    const index = this.renderer.getQuestClickIndex(event);
+    if (index < 0) {
       return;
     }
 
-    this._dropBox(box, 'provoked');
-    this._markUiDirty();
-  }
-
-  canProvokeMonster() {
-    return this.player.lookMode === 'up' && this.monster?.state === 'ceiling' && Boolean(this._getLiveBox(this.monster.x, this.monster.y));
+    if (this.state === 'topic_select') {
+      const config = this.slotConfigs[index];
+      if (config) {
+        this.selectTopic(config.slotDef.id);
+      }
+    } else if (this.state === 'question') {
+      this.answerQuestion(index);
+    }
   }
 
   cancelTargeting() {
@@ -1349,43 +1348,33 @@ class Game {
 
   _showTopicPanel() {
     this._hidePanels();
-    this.ui.topicPanel.classList.remove('hidden');
-    this.ui.topicButtons.innerHTML = '';
-
-    this.slotConfigs.forEach((config, index) => {
-      const button = document.createElement('button');
-      const cooldown = this._getSlotCooldownRemaining(config.slotDef.id, performance.now());
-      button.className = 'topic-btn';
-      if (cooldown > 0) {
-        button.classList.add('cooldown');
-      }
-      button.innerHTML = `
-        <span class="topic-name">${index + 1}. ${this._escapeHtml(config.grammarTopic)}</span>
-        <span class="topic-bonus">${this._escapeHtml(config.slotDef.bonusLabel)}</span>
-        <span class="topic-cooldown">${cooldown > 0 ? `CD: ${Math.ceil(cooldown / 1000)} c` : 'Готово'}</span>
-      `;
-      button.addEventListener('click', () => this.selectTopic(config.slotDef.id));
-      this.ui.topicButtons.appendChild(button);
+    const now = performance.now();
+    const topics = this.slotConfigs.map((config) => {
+      const cooldown = this._getSlotCooldownRemaining(config.slotDef.id, now);
+      return {
+        name: config.grammarTopic,
+        bonus: config.slotDef.bonusLabel,
+        onCooldown: cooldown > 0,
+        cooldownLabel: cooldown > 0 ? `CD: ${Math.ceil(cooldown / 1000)} c` : ''
+      };
     });
+
+    if (this.renderer) {
+      this.renderer.showQuestOnFloor('topics', topics, this.player.x, this.player.y);
+    }
   }
 
   _showQuestion(question) {
     this._hidePanels();
-    this.ui.questionPanel.classList.remove('hidden');
-    this.ui.questionFeedback.classList.add('hidden');
-    this.ui.questionFeedback.textContent = '';
-    this.ui.questionFeedback.classList.remove('correct', 'wrong');
-    this.ui.questionTopicLabel.textContent = `${question.grammarTopic} • ${question.level}`;
-    this.ui.questionText.innerHTML = `${this._escapeHtml(question.text)}<br><strong>${this._escapeHtml(question.display)}</strong>`;
-
-    this.ui.questionOptions.innerHTML = '';
-    question.options.options.forEach((option, index) => {
-      const button = document.createElement('button');
-      button.className = 'option-btn';
-      button.textContent = `${index + 1}. ${option}`;
-      button.addEventListener('click', () => this.answerQuestion(index));
-      this.ui.questionOptions.appendChild(button);
-    });
+    if (this.renderer) {
+      this.renderer.showQuestOnFloor('question', {
+        grammarTopic: question.grammarTopic,
+        level: question.level,
+        text: question.text,
+        display: question.display,
+        options: question.options.options
+      }, this.player.x, this.player.y);
+    }
   }
 
   _showFeedback(isCorrect, text) {
@@ -1461,6 +1450,9 @@ class Game {
     this.ui.questionPanel.classList.add('hidden');
     this.ui.actionPanel.classList.add('hidden');
     this.ui.targetPanel.classList.add('hidden');
+    if (this.renderer) {
+      this.renderer.hideQuestFromFloor();
+    }
   }
 
   _showLoading(text) {
@@ -1511,7 +1503,7 @@ class Game {
 
     this.ui.lookUpButton.classList.toggle('active', this.player.lookMode === 'up');
     this.ui.lookDownButton.classList.toggle('active', this.player.lookMode === 'down');
-    this.ui.provokeButton.classList.toggle('hidden', !this.canProvokeMonster());
+    this.ui.provokeButton.classList.add('hidden');
     this.ui.useHatchButton.classList.toggle('hidden', !(this.state === 'action_select' && this._getCurrentHatch() && !this._getCurrentHatch().opened));
 
     this.ui.statusEffects.innerHTML = '';
@@ -1683,8 +1675,7 @@ class Game {
       floorData: this.floorData,
       player: this.player,
       monster: this.monster,
-      quake: this.quake,
-      canProvoke: this.canProvokeMonster()
+      quake: this.quake
     });
     this.audio.setThreatLevel(this._calculateThreatLevel(now));
   }

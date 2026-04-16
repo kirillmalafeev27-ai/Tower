@@ -41,6 +41,16 @@ class TowerRenderer {
     this.pitch = -0.2;
     this.targetPitch = -0.2;
 
+    this.questGroup = null;
+    this.questCanvas = null;
+    this.questTexture = null;
+    this.questClickZones = [];
+    this.questFloorActive = false;
+    this.questHoveredIndex = -1;
+    this._lastQuestType = null;
+    this._lastQuestData = null;
+    this.raycaster = new THREE.Raycaster();
+
     this.isDragging = false;
     this.lastPointerX = 0;
     this.dragSensitivity = 0.004;
@@ -136,6 +146,13 @@ class TowerRenderer {
       onPointerMove(event);
     }, { passive: false });
     window.addEventListener('touchend', onPointerUp);
+
+    this.canvas.addEventListener('mousemove', (event) => {
+      if (!this.isDragging) {
+        this.updateQuestHover(event);
+        this.canvas.style.cursor = this.questHoveredIndex >= 0 ? 'pointer' : '';
+      }
+    });
   }
 
   getCameraFacing() {
@@ -293,7 +310,11 @@ class TowerRenderer {
     this.playerState = { ...player };
     const world = this.cellToWorld(player.x, player.y);
     this.playerTarget.set(world.x, this.eyeHeight, world.z);
-    this.targetPitch = player.lookMode === 'up' ? 0.96 : -0.28;
+    if (this.questFloorActive) {
+      this.targetPitch = -1.05;
+    } else {
+      this.targetPitch = player.lookMode === 'up' ? 0.96 : -0.28;
+    }
     if (instant) {
       this.targetYaw = [0, -Math.PI / 2, Math.PI, Math.PI / 2][player.facing] || 0;
       this.playerRender.copy(this.playerTarget);
@@ -435,6 +456,340 @@ class TowerRenderer {
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  showQuestOnFloor(type, data, playerX, playerY) {
+    this._ensureQuestPlane();
+    const world = this.cellToWorld(playerX, playerY);
+    this.questGroup.position.set(world.x, 0.02, world.z);
+    this.questGroup.visible = true;
+    this.questFloorActive = true;
+    this.questHoveredIndex = -1;
+    this._lastQuestType = type;
+    this._lastQuestData = data;
+    this._renderQuestCanvas(type, data, -1);
+    this.questTexture.needsUpdate = true;
+  }
+
+  hideQuestFromFloor() {
+    if (this.questGroup) {
+      this.questGroup.visible = false;
+    }
+    this.questFloorActive = false;
+    this.questClickZones = [];
+    this.questHoveredIndex = -1;
+    this._lastQuestType = null;
+    this._lastQuestData = null;
+  }
+
+  showAnswerFeedback(selectedIndex, correctIndex) {
+    if (!this._lastQuestData || this._lastQuestType !== 'question') {
+      return;
+    }
+    this._lastQuestData._selectedIndex = selectedIndex;
+    this._lastQuestData._correctIndex = correctIndex;
+    this._lastQuestType = 'feedback';
+    this._renderQuestCanvas('feedback', this._lastQuestData, -1);
+    this.questTexture.needsUpdate = true;
+    this.questClickZones = [];
+  }
+
+  getQuestClickIndex(event) {
+    if (!this.questGroup || !this.questGroup.visible || !this.questClickZones.length) {
+      return -1;
+    }
+
+    const rect = this.canvas.getBoundingClientRect();
+    const mouse = new THREE.Vector2(
+      ((event.clientX - rect.left) / rect.width) * 2 - 1,
+      -((event.clientY - rect.top) / rect.height) * 2 + 1
+    );
+
+    this.raycaster.setFromCamera(mouse, this.camera);
+    const plane = this.questGroup.children[0];
+    const hits = this.raycaster.intersectObject(plane);
+
+    if (!hits.length) {
+      return -1;
+    }
+
+    const uv = hits[0].uv;
+    const canvasX = uv.x;
+    const canvasY = 1 - uv.y;
+
+    for (const zone of this.questClickZones) {
+      if (canvasX >= zone.xStart && canvasX <= zone.xEnd &&
+          canvasY >= zone.yStart && canvasY <= zone.yEnd && zone.enabled) {
+        return zone.index;
+      }
+    }
+
+    return -1;
+  }
+
+  updateQuestHover(event) {
+    if (!this.questGroup || !this.questGroup.visible || !this.questClickZones.length) {
+      if (this.questHoveredIndex !== -1) {
+        this.questHoveredIndex = -1;
+      }
+      return;
+    }
+
+    const index = this.getQuestClickIndex(event);
+    if (index !== this.questHoveredIndex) {
+      this.questHoveredIndex = index;
+      if (this._lastQuestType && this._lastQuestData) {
+        this._renderQuestCanvas(this._lastQuestType, this._lastQuestData, index);
+        this.questTexture.needsUpdate = true;
+      }
+    }
+  }
+
+  _ensureQuestPlane() {
+    if (!this.questCanvas) {
+      this.questCanvas = document.createElement('canvas');
+      this.questCanvas.width = 512;
+      this.questCanvas.height = 512;
+      this.questTexture = new THREE.CanvasTexture(this.questCanvas);
+      this.questTexture.minFilter = THREE.LinearFilter;
+      this.questTexture.magFilter = THREE.LinearFilter;
+    }
+
+    if (!this.questGroup) {
+      const geo = new THREE.PlaneGeometry(this.cellSize * 0.92, this.cellSize * 0.92);
+      const mat = new THREE.MeshBasicMaterial({ map: this.questTexture, transparent: true, depthWrite: false });
+      const plane = new THREE.Mesh(geo, mat);
+      plane.rotation.x = -Math.PI / 2;
+      plane.position.y = 0;
+      this.questGroup = new THREE.Group();
+      this.questGroup.add(plane);
+      this.questGroup.visible = false;
+      this.root.add(this.questGroup);
+    }
+  }
+
+  _renderQuestCanvas(type, data, hoveredIndex) {
+    const ctx = this.questCanvas.getContext('2d');
+    const w = this.questCanvas.width;
+    const h = this.questCanvas.height;
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = 'rgba(30, 22, 16, 0.92)';
+    this._roundRect(ctx, 4, 4, w - 8, h - 8, 16);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(160, 128, 96, 0.5)';
+    ctx.lineWidth = 2;
+    this._roundRect(ctx, 4, 4, w - 8, h - 8, 16);
+    ctx.stroke();
+
+    this.questClickZones = [];
+
+    if (type === 'topics') {
+      this._drawTopics(ctx, data, w, h, hoveredIndex);
+    } else if (type === 'question') {
+      this._drawQuestionOnCanvas(ctx, data, w, h, hoveredIndex);
+    } else if (type === 'feedback') {
+      this._drawFeedbackOnCanvas(ctx, data, w, h);
+    }
+  }
+
+  _drawTopics(ctx, topics, w, h, hoveredIndex) {
+    const pad = 12;
+    ctx.fillStyle = '#c8b090';
+    ctx.font = 'bold 26px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Выберите тему', w / 2, 32);
+
+    const rowH = Math.min(80, (h - 64) / topics.length);
+    const startY = 56;
+
+    topics.forEach((topic, i) => {
+      const y = startY + i * rowH;
+      const isHovered = hoveredIndex === i && !topic.onCooldown;
+
+      ctx.fillStyle = topic.onCooldown ? 'rgba(50, 38, 28, 0.6)' : isHovered ? 'rgba(90, 68, 45, 0.9)' : 'rgba(60, 45, 30, 0.8)';
+      this._roundRect(ctx, pad, y, w - pad * 2, rowH - 6, 8);
+      ctx.fill();
+
+      ctx.strokeStyle = topic.onCooldown ? '#443322' : isHovered ? '#d0a870' : '#8a6a48';
+      ctx.lineWidth = isHovered ? 2 : 1;
+      this._roundRect(ctx, pad, y, w - pad * 2, rowH - 6, 8);
+      ctx.stroke();
+
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = topic.onCooldown ? '#665544' : '#e8d5b0';
+      ctx.font = 'bold 20px sans-serif';
+      ctx.fillText(`${i + 1}. ${topic.name}`, pad + 12, y + (rowH - 6) * 0.38);
+
+      ctx.font = '15px sans-serif';
+      ctx.fillStyle = topic.onCooldown ? '#554433' : '#b09878';
+      ctx.fillText(topic.bonus, pad + 12, y + (rowH - 6) * 0.68);
+
+      if (topic.onCooldown) {
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#776655';
+        ctx.font = '14px sans-serif';
+        ctx.fillText(topic.cooldownLabel, w - pad - 12, y + (rowH - 6) / 2);
+      }
+
+      if (!topic.onCooldown) {
+        this.questClickZones.push({
+          yStart: y / h,
+          yEnd: (y + rowH - 6) / h,
+          xStart: pad / w,
+          xEnd: (w - pad) / w,
+          index: i,
+          enabled: true
+        });
+      }
+    });
+  }
+
+  _drawQuestionOnCanvas(ctx, data, w, h, hoveredIndex) {
+    const pad = 12;
+
+    ctx.fillStyle = '#b09878';
+    ctx.font = '16px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText(`${data.grammarTopic} \u2022 ${data.level}`, w / 2, 14);
+
+    ctx.fillStyle = '#d8c5a0';
+    ctx.font = '17px sans-serif';
+    ctx.textAlign = 'center';
+    const textBottom = this._questWrapText(ctx, data.text, w / 2, 42, w - 40, 20);
+
+    ctx.fillStyle = '#f0e0c0';
+    ctx.font = 'bold 20px sans-serif';
+    this._questWrapText(ctx, data.display, w / 2, textBottom + 12, w - 40, 24);
+
+    const optionH = 52;
+    const optionsStart = h - data.options.length * optionH - pad;
+
+    data.options.forEach((option, i) => {
+      const y = optionsStart + i * optionH;
+      const isHovered = hoveredIndex === i;
+
+      ctx.fillStyle = isHovered ? 'rgba(90, 68, 45, 0.9)' : 'rgba(55, 42, 30, 0.8)';
+      this._roundRect(ctx, pad, y, w - pad * 2, optionH - 6, 8);
+      ctx.fill();
+
+      ctx.strokeStyle = isHovered ? '#d0a870' : '#7a5a38';
+      ctx.lineWidth = isHovered ? 2 : 1;
+      this._roundRect(ctx, pad, y, w - pad * 2, optionH - 6, 8);
+      ctx.stroke();
+
+      ctx.fillStyle = '#e8d5b0';
+      ctx.font = '19px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`${i + 1}. ${option}`, pad + 14, y + (optionH - 6) / 2);
+
+      this.questClickZones.push({
+        yStart: y / h,
+        yEnd: (y + optionH - 6) / h,
+        xStart: pad / w,
+        xEnd: (w - pad) / w,
+        index: i,
+        enabled: true
+      });
+    });
+  }
+
+  _drawFeedbackOnCanvas(ctx, data, w, h) {
+    const pad = 12;
+    const selectedIndex = data._selectedIndex;
+    const correctIndex = data._correctIndex;
+
+    ctx.fillStyle = '#b09878';
+    ctx.font = '16px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText(`${data.grammarTopic} \u2022 ${data.level}`, w / 2, 14);
+
+    ctx.fillStyle = '#d8c5a0';
+    ctx.font = '17px sans-serif';
+    const textBottom = this._questWrapText(ctx, data.text, w / 2, 42, w - 40, 20);
+
+    ctx.fillStyle = '#f0e0c0';
+    ctx.font = 'bold 20px sans-serif';
+    this._questWrapText(ctx, data.display, w / 2, textBottom + 12, w - 40, 24);
+
+    const optionH = 52;
+    const optionsStart = h - data.options.length * optionH - pad;
+
+    data.options.forEach((option, i) => {
+      const y = optionsStart + i * optionH;
+
+      let bgColor = 'rgba(55, 42, 30, 0.8)';
+      let borderColor = '#7a5a38';
+      let textColor = '#e8d5b0';
+
+      if (i === correctIndex) {
+        bgColor = 'rgba(40, 100, 50, 0.85)';
+        borderColor = '#4ea55b';
+        textColor = '#c0ffcc';
+      } else if (i === selectedIndex) {
+        bgColor = 'rgba(120, 40, 35, 0.85)';
+        borderColor = '#b84334';
+        textColor = '#ffbbaa';
+      }
+
+      ctx.fillStyle = bgColor;
+      this._roundRect(ctx, pad, y, w - pad * 2, optionH - 6, 8);
+      ctx.fill();
+
+      ctx.strokeStyle = borderColor;
+      ctx.lineWidth = 2;
+      this._roundRect(ctx, pad, y, w - pad * 2, optionH - 6, 8);
+      ctx.stroke();
+
+      ctx.fillStyle = textColor;
+      ctx.font = '19px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`${i + 1}. ${option}`, pad + 14, y + (optionH - 6) / 2);
+    });
+  }
+
+  _questWrapText(ctx, text, x, y, maxWidth, lineHeight) {
+    const words = text.split(' ');
+    let line = '';
+    let currentY = y;
+
+    for (const word of words) {
+      const test = line + word + ' ';
+      if (ctx.measureText(test).width > maxWidth && line) {
+        ctx.fillText(line.trim(), x, currentY);
+        line = word + ' ';
+        currentY += lineHeight;
+      } else {
+        line = test;
+      }
+    }
+
+    if (line.trim()) {
+      ctx.fillText(line.trim(), x, currentY);
+      currentY += lineHeight;
+    }
+
+    return currentY;
+  }
+
+  _roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
   }
 
   dispose() {
