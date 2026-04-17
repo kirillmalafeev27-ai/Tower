@@ -1836,6 +1836,7 @@ class TowerRenderer {
       color: 0xf3e3c0,
       transparent: true,
       side: THREE.DoubleSide,
+      depthTest: false,
       depthWrite: false,
       alphaTest: 0.02,
       roughness: 0.72,
@@ -1854,7 +1855,7 @@ class TowerRenderer {
     innerFrame.position.z = 0.032;
     glow.position.z = -0.02;
     plane.position.z = 0.05;
-    plane.renderOrder = 6;
+    plane.renderOrder = 120;
     [outerFrame, plate, innerFrame].forEach((mesh) => {
       mesh.castShadow = true;
       mesh.receiveShadow = true;
@@ -2390,7 +2391,7 @@ class TowerRenderer {
       this.floorData.config.height - 1 - player.y
     );
     const edgeFactor = THREE.MathUtils.clamp(edgeDistance / 1.5, 0, 1);
-    const panelScale = 0.72 + edgeFactor * 0.28;
+    const panelScale = 0.88 + edgeFactor * 0.34;
     this.questionPanelGroup.scale.setScalar(panelScale);
 
     const panelWidth = (this.questionPanelGroup.userData.panelWidth || this.cellSize * 0.9) * panelScale;
@@ -2580,12 +2581,12 @@ class TowerRenderer {
     const ctx = this.questionContext;
     const width = this.questionCanvas.width;
     const height = this.questionCanvas.height;
-    const padding = 104;
+    const padding = 92;
     const innerWidth = width - padding * 2;
-    const optionGap = 18;
-    const optionHeight = 114;
+    const optionGap = 22;
+    const optionHeight = 126;
     const optionWidth = innerWidth;
-    const optionTop = height - padding - optionHeight * 4 - optionGap * 3 - 92;
+    const optionTop = height - padding - optionHeight * 4 - optionGap * 3 - 78;
     const selectedIndex = question.selectedIndex;
     const feedback = question.feedback;
 
@@ -2622,34 +2623,34 @@ class TowerRenderer {
     ctx.strokeStyle = 'rgba(205, 170, 116, 0.12)';
     ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.moveTo(padding, 190);
-    ctx.lineTo(width - padding, 190);
-    ctx.moveTo(padding, optionTop - 40);
-    ctx.lineTo(width - padding, optionTop - 40);
+    ctx.moveTo(padding, 204);
+    ctx.lineTo(width - padding, 204);
+    ctx.moveTo(padding, optionTop - 34);
+    ctx.lineTo(width - padding, optionTop - 34);
     ctx.stroke();
 
     ctx.fillStyle = 'rgba(222, 193, 138, 0.92)';
-    ctx.font = '700 54px Georgia, serif';
+    ctx.font = '700 66px Georgia, serif';
     ctx.textAlign = 'center';
-    ctx.fillText(question.topic || 'Topic', width / 2, 112);
+    ctx.fillText(question.topic || 'Topic', width / 2, 128);
 
     ctx.fillStyle = 'rgba(230, 216, 185, 0.58)';
-    ctx.font = '600 28px Georgia, serif';
-    ctx.fillText(question.level || '', width / 2, 164);
+    ctx.font = '600 34px Georgia, serif';
+    ctx.fillText(question.level || '', width / 2, 184);
 
     ctx.textAlign = 'left';
     ctx.fillStyle = 'rgba(244, 235, 212, 0.94)';
-    ctx.font = '600 42px Georgia, serif';
-    let cursorY = 238;
-    cursorY = this._drawWrappedText(ctx, question.text || '', padding, cursorY, innerWidth, 54, 3);
+    ctx.font = '600 52px Georgia, serif';
+    let cursorY = 264;
+    cursorY = this._drawWrappedText(ctx, question.text || '', padding, cursorY, innerWidth, 64, 3);
 
     ctx.fillStyle = 'rgba(235, 194, 124, 0.95)';
-    ctx.font = '700 46px Georgia, serif';
-    cursorY += 24;
-    this._drawWrappedText(ctx, question.display || '', padding, cursorY, innerWidth, 54, 2);
+    ctx.font = '700 58px Georgia, serif';
+    cursorY += 28;
+    this._drawWrappedText(ctx, question.display || '', padding, cursorY, innerWidth, 66, 2);
 
     this.questionOptionRects = [];
-    ctx.font = '600 32px Georgia, serif';
+    ctx.font = '600 38px Georgia, serif';
 
     question.options.forEach((option, index) => {
       const x = padding;
@@ -2682,20 +2683,20 @@ class TowerRenderer {
       ctx.stroke();
 
       ctx.fillStyle = 'rgba(247, 239, 222, 0.95)';
-      ctx.font = '700 28px Georgia, serif';
-      ctx.fillText(`${index + 1}.`, x + 28, y + 42);
-      ctx.font = '600 32px Georgia, serif';
-      this._drawWrappedText(ctx, option || '', x + 84, y + 38, optionWidth - 116, 36, 2);
+      ctx.font = '700 34px Georgia, serif';
+      ctx.fillText(`${index + 1}.`, x + 30, y + 48);
+      ctx.font = '600 38px Georgia, serif';
+      this._drawWrappedText(ctx, option || '', x + 90, y + 44, optionWidth - 124, 42, 2);
 
       this.questionOptionRects.push({ x, y, width: optionWidth, height: optionHeight });
     });
 
     if (feedback?.text) {
-      const feedbackY = height - padding - 18;
+      const feedbackY = height - padding - 16;
       ctx.fillStyle = feedback.isCorrect ? 'rgba(203, 226, 186, 0.9)' : 'rgba(239, 183, 168, 0.92)';
-      ctx.font = '700 26px Georgia, serif';
+      ctx.font = '700 32px Georgia, serif';
       ctx.textAlign = 'center';
-      this._drawWrappedText(ctx, feedback.text, width / 2 - innerWidth / 2, feedbackY, innerWidth, 30, 2, 'center');
+      this._drawWrappedText(ctx, feedback.text, width / 2 - innerWidth / 2, feedbackY, innerWidth, 38, 2, 'center');
       ctx.textAlign = 'left';
     }
 
