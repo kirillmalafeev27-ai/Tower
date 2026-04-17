@@ -8,6 +8,7 @@ const STEALTH_DURATION_MS = 6000;
 const MONSTER_STUN_MS = 3000;
 const MONSTER_FLOOR_MS = 5000;
 const MONSTER_DROP_LOCK_MS = 1600;
+const MONSTER_AI_DELAY_MULTIPLIER = 1.5;
 const QUAKE_WARNING_MS = 2500;
 const QUAKE_ACTIVE_MS = 5000;
 const FLOOR_TRANSITION_MS = 2200;
@@ -564,7 +565,7 @@ class Game {
       state: 'ceiling',
       x: farthest?.x || floorData.start.x,
       y: farthest?.y || 0,
-      nextMoveAt: performance.now() + floorData.config.ceilingMoveMs,
+      nextMoveAt: performance.now() + Math.round(floorData.config.ceilingMoveMs * MONSTER_AI_DELAY_MULTIPLIER),
       stateUntil: 0,
       hiddenUntil: 0,
       jumpCooldownUntil: 0,
@@ -738,6 +739,18 @@ class Game {
     return Math.max(2600, randomInt(base + quakePressure, base + variance + quakePressure));
   }
 
+  _getMonsterCeilingMoveDelayMs() {
+    return Math.round(this.floorConfig.ceilingMoveMs * MONSTER_AI_DELAY_MULTIPLIER);
+  }
+
+  _getMonsterFloorMoveDelayMs() {
+    return Math.round(this.floorConfig.floorMoveMs * MONSTER_AI_DELAY_MULTIPLIER);
+  }
+
+  _getMonsterJumpCooldownDelayMs() {
+    return Math.round(this.floorConfig.jumpCooldownMs * MONSTER_AI_DELAY_MULTIPLIER);
+  }
+
   _updateMonster(now) {
     if (!this.monster) {
       return;
@@ -746,7 +759,7 @@ class Game {
     if (this.monster.state === 'stunned' && now >= this.monster.stateUntil) {
       this.monster.state = 'floor';
       this.monster.stateUntil = 0;
-      this.monster.nextMoveAt = now + this.floorConfig.floorMoveMs;
+      this.monster.nextMoveAt = now + this._getMonsterFloorMoveDelayMs();
       this.monster.dropChargeSince = 0;
       this._markUiDirty();
     }
@@ -770,8 +783,8 @@ class Game {
       if (this.floorConfig.autoJumpIfIdleMs && !ceilingFrozen && now >= this.monster.jumpCooldownUntil) {
         if (now - this.floorData.lastPlayerMoveAt >= this.floorConfig.autoJumpIfIdleMs) {
           if (this._jumpMonsterToward(this.player.x, this.player.y)) {
-            this.monster.nextMoveAt = now + this.floorConfig.ceilingMoveMs;
-            this.monster.jumpCooldownUntil = now + this.floorConfig.jumpCooldownMs;
+            this.monster.nextMoveAt = now + this._getMonsterCeilingMoveDelayMs();
+            this.monster.jumpCooldownUntil = now + this._getMonsterJumpCooldownDelayMs();
             this._showMessage('\u041c\u043e\u043d\u0441\u0442\u0440 \u0441\u043e\u0440\u0432\u0430\u043b\u0441\u044f \u0432 \u0434\u043b\u0438\u043d\u043d\u044b\u0439 \u043f\u0440\u044b\u0436\u043e\u043a \u043d\u0430\u0434 \u0432\u0430\u043c\u0438.', 1300);
           }
         }
@@ -874,7 +887,7 @@ class Game {
       ) {
         moved = this._jumpMonsterToward(this.player.x, this.player.y);
         if (moved) {
-          this.monster.jumpCooldownUntil = now + this.floorConfig.jumpCooldownMs;
+          this.monster.jumpCooldownUntil = now + this._getMonsterJumpCooldownDelayMs();
         }
       }
 
@@ -891,7 +904,7 @@ class Game {
       }
     }
 
-    this.monster.nextMoveAt = now + this.floorConfig.ceilingMoveMs;
+    this.monster.nextMoveAt = now + this._getMonsterCeilingMoveDelayMs();
     this._markUiDirty();
   }
 
@@ -922,7 +935,7 @@ class Game {
       moved = this._stepMonsterToward(target, true);
     }
 
-    this.monster.nextMoveAt = now + this.floorConfig.floorMoveMs;
+    this.monster.nextMoveAt = now + this._getMonsterFloorMoveDelayMs();
 
     if (this.monster.x === this.player.x && this.monster.y === this.player.y) {
       this.audio.playMonsterGrab();
@@ -1112,7 +1125,7 @@ class Game {
 
     this.monster.state = 'floor';
     this.monster.stateUntil = 0;
-    this.monster.nextMoveAt = now + this.floorConfig.floorMoveMs;
+    this.monster.nextMoveAt = now + this._getMonsterFloorMoveDelayMs();
     this.monster.dropChargeSince = 0;
   }
 
@@ -1120,7 +1133,7 @@ class Game {
     const liveBoxes = this._getFloorBoxes().filter((box) => !box.fallen);
     if (!liveBoxes.length) {
       this.monster.state = 'floor';
-      this.monster.nextMoveAt = now + this.floorConfig.floorMoveMs;
+      this.monster.nextMoveAt = now + this._getMonsterFloorMoveDelayMs();
       return;
     }
 
@@ -1136,7 +1149,7 @@ class Game {
     this.monster.state = 'ceiling';
     this.monster.x = target.x;
     this.monster.y = target.y;
-    this.monster.nextMoveAt = now + this.floorConfig.ceilingMoveMs;
+    this.monster.nextMoveAt = now + this._getMonsterCeilingMoveDelayMs();
     this.monster.stateUntil = 0;
     this.monster.dropChargeSince = 0;
   }

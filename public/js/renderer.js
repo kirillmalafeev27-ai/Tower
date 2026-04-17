@@ -1865,6 +1865,7 @@ class TowerRenderer {
     anchor.visible = false;
     anchor.userData.panelWidth = panelWidth + 0.34;
     anchor.userData.panelHeight = panelHeight + 0.26;
+    anchor.userData.baseScale = 1;
     this.root.add(anchor);
     this.questionPanelGroup = anchor;
     this.questionPlane = plane;
@@ -2325,7 +2326,7 @@ class TowerRenderer {
         : this.ceilingY - 1.42;
     }
     this.monsterTarget.set(monsterWorld.x, targetY, monsterWorld.z);
-    this.monsterGroup.position.lerp(this.monsterTarget, 0.2);
+    this.monsterGroup.position.lerp(this.monsterTarget, 0.1333333333);
     this.monsterGroup.rotation.x = monster.state === 'ceiling' ? Math.PI : 0;
     this.monsterGroup.rotation.z = monster.state === 'ceiling' ? Math.sin(this.clock.elapsedTime * 2.4) * 0.04 : 0;
     this.monsterGroup.scale.setScalar(
@@ -2382,22 +2383,34 @@ class TowerRenderer {
     const hoverLift = Math.sin(this.clock.elapsedTime * 4.2) * 0.004;
     const halfW = this.floorData.config.width * this.cellSize * 0.5;
     const halfH = this.floorData.config.height * this.cellSize * 0.5;
-    const panelWidth = this.questionPanelGroup.userData.panelWidth || this.cellSize * 0.9;
-    const panelHeight = this.questionPanelGroup.userData.panelHeight || this.cellSize * 0.7;
-    const clampPadX = Math.max(this.cellSize * 0.48, panelWidth * 0.5 + 0.2);
-    const clampPadZ = Math.max(this.cellSize * 0.48, panelHeight * 0.5 + 0.2);
+    const edgeDistance = Math.min(
+      player.x,
+      this.floorData.config.width - 1 - player.x,
+      player.y,
+      this.floorData.config.height - 1 - player.y
+    );
+    const edgeFactor = THREE.MathUtils.clamp(edgeDistance / 1.5, 0, 1);
+    const panelScale = 0.72 + edgeFactor * 0.28;
+    this.questionPanelGroup.scale.setScalar(panelScale);
+
+    const panelWidth = (this.questionPanelGroup.userData.panelWidth || this.cellSize * 0.9) * panelScale;
+    const panelHeight = (this.questionPanelGroup.userData.panelHeight || this.cellSize * 0.7) * panelScale;
+    const clampPadX = Math.max(this.cellSize * 0.38, panelWidth * 0.5 + 0.12);
+    const clampPadZ = Math.max(this.cellSize * 0.38, panelHeight * 0.5 + 0.12);
     const rawX = world.x - Math.sin(panelYaw) * forwardOffset;
     const rawZ = world.z - Math.cos(panelYaw) * forwardOffset;
-    const panelCell = this.worldToCell(rawX, rawZ);
+    const clampedX = THREE.MathUtils.clamp(rawX, -halfW + clampPadX, halfW - clampPadX);
+    const clampedZ = THREE.MathUtils.clamp(rawZ, -halfH + clampPadZ, halfH - clampPadZ);
+    const panelCell = this.worldToCell(clampedX, clampedZ);
     const panelCellKey = tileKey(panelCell.x, panelCell.y);
     const floorTop = this.floorNodes[panelCellKey]
       ? this._getFloorTopAtCell(panelCell.x, panelCell.y)
       : this._getFloorTopAtCell(player.x, player.y);
     this.questionPanelGroup.visible = true;
     this.questionPanelGroup.position.set(
-      THREE.MathUtils.clamp(rawX, -halfW + clampPadX, halfW - clampPadX),
-      floorTop + 0.045 + hoverLift,
-      THREE.MathUtils.clamp(rawZ, -halfH + clampPadZ, halfH - clampPadZ)
+      clampedX,
+      floorTop + 0.105 + hoverLift,
+      clampedZ
     );
     this.questionPanelGroup.rotation.set(0, panelYaw, 0);
 
