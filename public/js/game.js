@@ -2137,7 +2137,7 @@ class Game {
       this.ui.statusEffects.appendChild(this._createStatusBadge(`Маскировка: ${formatSeconds(this.monster.hiddenUntil - now)} c`, 'success'));
     }
     if (hasReveal) {
-      this.ui.statusEffects.appendChild(this._createStatusBadge('Видны stability-рамки', 'warning'));
+      this.ui.statusEffects.appendChild(this._createStatusBadge('Виден распад ящиков', 'warning'));
     }
     if (hasFortify) {
       this.ui.statusEffects.appendChild(this._createStatusBadge('Укрепление активно', 'success'));
@@ -2204,12 +2204,11 @@ class Game {
 
         if (box && !box.fallen && this.player.lookMode === 'up') {
           cell.classList.add('ceiling-box', `box-${box.type}`);
-          const ratio = box.stability / box.maxStability;
           if (box.scheduledFallAt > now) {
             cell.classList.add('reveal-risk');
           }
           if (box.revealUntil > now) {
-            cell.classList.add(ratio >= 0.55 ? 'reveal-safe' : ratio >= 0.28 ? 'reveal-mid' : 'reveal-risk');
+            cell.classList.add(this._getRevealDecayClass(box));
           }
           if (box.fortifiedUntil > now) {
             cell.classList.add('fortified');
@@ -2250,6 +2249,19 @@ class Game {
 
   _getFacingArrow() {
     return ['↑', '→', '↓', '←'][this.player.facing] || '↑';
+  }
+
+  _getRevealDecayClass(box) {
+    const stabilityRatio = clamp(box.stability / Math.max(1, box.maxStability), 0, 1);
+    const decayRatio = 1 - stabilityRatio;
+
+    if (decayRatio <= 0.33) {
+      return 'reveal-safe';
+    }
+    if (decayRatio < 0.67) {
+      return 'reveal-mid';
+    }
+    return 'reveal-risk';
   }
 
   _createStatusBadge(text, kind) {
