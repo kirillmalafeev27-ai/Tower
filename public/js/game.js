@@ -7,8 +7,12 @@ const FORTIFY_DURATION_MS = 30000;
 const STEALTH_DURATION_MS = 6000;
 const MONSTER_STUN_MS = 3000;
 const MONSTER_FLOOR_MS = 5000;
-const MONSTER_DROP_LOCK_MS = 1600;
 const MONSTER_AI_DELAY_MULTIPLIER = 1.5;
+const MONSTER_FLOOR_AI_DELAY_MULTIPLIER = 1.3;
+const MONSTER_BOX_PRESSURE_BASE_MS = 7500;
+const MONSTER_BOX_PRESSURE_MULTIPLIER = 2.5;
+const MONSTER_BOX_PRESSURE_FORTIFIED_MULTIPLIER = 1.5;
+const BOX_FORTIFY_DECAY_SLOW_MULTIPLIER = 2;
 const QUAKE_WARNING_MS = 2500;
 const QUAKE_ACTIVE_MS = 5000;
 const FLOOR_TRANSITION_MS = 2200;
@@ -568,8 +572,7 @@ class Game {
       nextMoveAt: performance.now() + Math.round(floorData.config.ceilingMoveMs * MONSTER_AI_DELAY_MULTIPLIER),
       stateUntil: 0,
       hiddenUntil: 0,
-      jumpCooldownUntil: 0,
-      dropChargeSince: 0
+      jumpCooldownUntil: 0
     };
   }
 
@@ -645,10 +648,13 @@ class Game {
   }
 
   _updateBoxes(now, deltaSeconds) {
+    let changed = false;
+
     this._getFloorBoxes().forEach((box) => {
       if (box.fallAnimationUntil && now >= box.fallAnimationUntil) {
         box.fallAnimationUntil = 0;
         box.fallAnimationStartedAt = 0;
+        changed = true;
       }
 
       if (box.fallen) {
@@ -657,12 +663,15 @@ class Game {
 
       if (box.revealUntil && now >= box.revealUntil) {
         box.revealUntil = 0;
+        changed = true;
       }
       if (box.fortifiedUntil && now >= box.fortifiedUntil) {
         box.fortifiedUntil = 0;
+        changed = true;
       }
       if (box.warningUntil && now >= box.warningUntil && now < box.scheduledFallAt) {
         box.warningUntil = 0;
+        changed = true;
       }
 
       if (box.fortifiedUntil > now && box.scheduledFallAt) {
@@ -671,9 +680,23 @@ class Game {
           this.floorData.pendingFallBoxKey = null;
           this.floorData.nextRandomFallAt = now + this._getRandomFallDelayMs();
         }
-        this._markUiDirty();
+        changed = true;
+      }
+
+      const decayPerSecond = this._getBoxDecayPerSecond(box, now);
+      if (decayPerSecond <= 0) {
+        return;
+      }
+
+      box.stability = Math.max(0, box.stability - box.maxStability * decayPerSecond * deltaSeconds);
+      if (box.stability <= 0) {
+        this._dropBox(box, this._isMonsterPressuringBox(box) ? 'monster' : 'rot');
       }
     });
+
+    if (changed) {
+      this._markUiDirty();
+    }
   }
 
   _updateRandomBoxFalls(now) {
@@ -739,12 +762,51 @@ class Game {
     return Math.max(2600, randomInt(base + quakePressure, base + variance + quakePressure));
   }
 
+  _isMonsterPressuringBox(box) {
+    return Boolean(
+      box
+      && this.monster?.state === 'ceiling'
+      && this.monster.x === this.player.x
+      && this.monster.y === this.player.y
+      && box.x === this.monster.x
+      && box.y === this.monster.y
+      && this._getLiveBox(box.x, box.y) === box
+    );
+  }
+
+  _getBoxDecayPerSecond(box, now) {
+    const template = BOX_TYPES[box.type] || {};
+    const fortified = box.fortifiedUntil > now;
+    const pressuredByMonster = this._isMonsterPressuringBox(box);
+    let decayPerSecond = template.faultPerSecond || 0;
+
+    if (!decayPerSecond && pressuredByMonster) {
+      decayPerSecond = 1000 / MONSTER_BOX_PRESSURE_BASE_MS;
+    }
+
+    if (!decayPerSecond) {
+      return 0;
+    }
+
+    if (fortified) {
+      decayPerSecond /= BOX_FORTIFY_DECAY_SLOW_MULTIPLIER;
+    }
+
+    if (pressuredByMonster) {
+      decayPerSecond *= fortified
+        ? MONSTER_BOX_PRESSURE_FORTIFIED_MULTIPLIER
+        : MONSTER_BOX_PRESSURE_MULTIPLIER;
+    }
+
+    return decayPerSecond;
+  }
+
   _getMonsterCeilingMoveDelayMs() {
     return Math.round(this.floorConfig.ceilingMoveMs * MONSTER_AI_DELAY_MULTIPLIER);
   }
 
   _getMonsterFloorMoveDelayMs() {
-    return Math.round(this.floorConfig.floorMoveMs * MONSTER_AI_DELAY_MULTIPLIER);
+    return Math.round(this.floorConfig.floorMoveMs * MONSTER_AI_DELAY_MULTIPLIER * MONSTER_FLOOR_AI_DELAY_MULTIPLIER);
   }
 
   _getMonsterJumpCooldownDelayMs() {
@@ -760,7 +822,6 @@ class Game {
       this.monster.state = 'floor';
       this.monster.stateUntil = 0;
       this.monster.nextMoveAt = now + this._getMonsterFloorMoveDelayMs();
-      this.monster.dropChargeSince = 0;
       this._markUiDirty();
     }
 
@@ -790,20 +851,6 @@ class Game {
         }
       }
 
-      if (this.monster.x === this.player.x && this.monster.y === this.player.y && this._getLiveBox(this.player.x, this.player.y)) {
-        if (!this.monster.dropChargeSince) {
-          this.monster.dropChargeSince = now;
-        }
-        if (!ceilingFrozen && now - this.monster.dropChargeSince >= MONSTER_DROP_LOCK_MS) {
-          const box = this._getLiveBox(this.player.x, this.player.y);
-          if (box) {
-            this._dropBox(box, 'monster');
-          }
-          this.monster.dropChargeSince = 0;
-        }
-      } else {
-        this.monster.dropChargeSince = 0;
-      }
     }
 
     if (this.monster.state === 'floor' && now >= this.monster.nextMoveAt) {
@@ -1126,7 +1173,6 @@ class Game {
     this.monster.state = 'floor';
     this.monster.stateUntil = 0;
     this.monster.nextMoveAt = now + this._getMonsterFloorMoveDelayMs();
-    this.monster.dropChargeSince = 0;
   }
 
   _returnMonsterToCeiling(now, preferredTile = null) {
@@ -1151,7 +1197,6 @@ class Game {
     this.monster.y = target.y;
     this.monster.nextMoveAt = now + this._getMonsterCeilingMoveDelayMs();
     this.monster.stateUntil = 0;
-    this.monster.dropChargeSince = 0;
   }
 
   _scheduleQuake(reason) {
@@ -1224,7 +1269,6 @@ class Game {
     const now = performance.now();
     this.monster.state = 'stunned';
     this.monster.stateUntil = now + MONSTER_STUN_MS;
-    this.monster.dropChargeSince = 0;
     this.monster.hiddenUntil = 0;
     this.monster.nextMoveAt = now + MONSTER_STUN_MS;
     this.audio.playMonsterDrop();
