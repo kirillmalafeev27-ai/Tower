@@ -2,8 +2,8 @@ class TowerRenderer {
   constructor(canvas) {
     this.canvas = canvas;
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x050705);
-    this.scene.fog = new THREE.Fog(0x070905, 18, 82);
+    this.scene.background = new THREE.Color(0x050604);
+    this.scene.fog = new THREE.Fog(0x0a0c08, 12, 58);
 
     this.camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 160);
     this.camera.rotation.order = 'YXZ';
@@ -14,7 +14,7 @@ class TowerRenderer {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.outputEncoding = THREE.sRGBEncoding;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 0.84;
+    this.renderer.toneMappingExposure = 0.94;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
@@ -244,41 +244,41 @@ class TowerRenderer {
     const rottenCrateMap = this._makeWoodTexture({ base: 0x382a1d, dark: 0x17110b, light: 0x534030, seed: 10, repeatX: 1.6, repeatY: 1.3 });
     const safeCrateMap = this._makeWoodTexture({ base: 0x6a593e, dark: 0x392d1d, light: 0x8c7653, seed: 11, repeatX: 1.4, repeatY: 1.2 });
 
-    this.floorMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: floorStoneMap, roughness: 0.64, metalness: 0.05 });
-    this.floorInsetMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: floorInsetMap, roughness: 0.48, metalness: 0.04 });
-    this.floorEdgeMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: wallStoneMap, roughness: 0.78, metalness: 0.03 });
-    this.puddleMaterial = new THREE.MeshStandardMaterial({ color: 0x222418, roughness: 0.05, metalness: 0.08, transparent: true, opacity: 0.9 });
-    this.hatchRingMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: ironMap, roughness: 0.36, metalness: 0.58 });
-    this.hatchVoidMaterial = new THREE.MeshBasicMaterial({ color: 0x010203 });
-    this.debrisMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: heavyCrateMap, roughness: 0.68, metalness: 0.05 });
-    this.wallMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: wallStoneMap, roughness: 0.8, metalness: 0.03 });
-    this.wallTrimMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: trimStoneMap, roughness: 0.58, metalness: 0.05 });
-    this.ceilingMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: ceilingStoneMap, roughness: 0.74, metalness: 0.02 });
-    this.columnMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: trimStoneMap, roughness: 0.76, metalness: 0.03 });
+    this.floorMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: floorStoneMap, roughness: 0.68, metalness: 0.06 });
+    this.floorInsetMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: floorInsetMap, roughness: 0.4, metalness: 0.08 });
+    this.floorEdgeMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: wallStoneMap, roughness: 0.82, metalness: 0.04 });
+    this.puddleMaterial = new THREE.MeshStandardMaterial({ color: 0x141812, roughness: 0.04, metalness: 0.55, transparent: true, opacity: 0.92 });
+    this.hatchRingMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: ironMap, roughness: 0.32, metalness: 0.66 });
+    this.hatchVoidMaterial = new THREE.MeshBasicMaterial({ color: 0x010101 });
+    this.debrisMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: heavyCrateMap, roughness: 0.64, metalness: 0.06 });
+    this.wallMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: wallStoneMap, roughness: 0.88, metalness: 0.02 });
+    this.wallTrimMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: trimStoneMap, roughness: 0.54, metalness: 0.07 });
+    this.ceilingMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: ceilingStoneMap, roughness: 0.86, metalness: 0.02, emissive: 0x050403, emissiveIntensity: 0.35 });
+    this.columnMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: trimStoneMap, roughness: 0.74, metalness: 0.04 });
     this.mossMaterial = new THREE.MeshStandardMaterial({ color: 0x23311f, roughness: 0.82, metalness: 0.02, transparent: true, opacity: 0.68, side: THREE.DoubleSide });
     this.torchBracketMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: ironMap, roughness: 0.28, metalness: 0.76 });
     this.torchFlameMaterial = new THREE.MeshBasicMaterial({ color: 0xffa24a });
     this.monsterMaterial = new THREE.MeshPhysicalMaterial({
-      color: 0x18231d,
-      emissive: 0x07100c,
-      roughness: 0.42,
+      color: 0x121a14,
+      emissive: 0x060f09,
+      roughness: 0.32,
       metalness: 0.02,
-      clearcoat: 0.72,
+      clearcoat: 0.78,
       clearcoatRoughness: 0.22,
       reflectivity: 0.32
     });
     this.monsterWetMaterial = new THREE.MeshPhysicalMaterial({
-      color: 0x274438,
-      emissive: 0x0a1712,
-      roughness: 0.12,
-      metalness: 0.01,
-      clearcoat: 1,
-      clearcoatRoughness: 0.04,
-      reflectivity: 0.48
+      color: 0x24382b,
+      emissive: 0x0d1a13,
+      roughness: 0.14,
+      metalness: 0.02,
+      clearcoat: 0.96,
+      clearcoatRoughness: 0.06,
+      reflectivity: 0.52
     });
-    this.monsterBoneMaterial = new THREE.MeshStandardMaterial({ color: 0xc2b39c, emissive: 0x201711, roughness: 0.6, metalness: 0.02 });
-    this.monsterClawMaterial = new THREE.MeshStandardMaterial({ color: 0x53665e, emissive: 0x0d1612, roughness: 0.2, metalness: 0.08 });
-    this.monsterEyeMaterial = new THREE.MeshStandardMaterial({ color: 0xa7efc0, emissive: 0x56c48e, roughness: 0.12, metalness: 0.04 });
+    this.monsterBoneMaterial = new THREE.MeshStandardMaterial({ color: 0xd8c6a8, emissive: 0x2a1d10, roughness: 0.48, metalness: 0.03 });
+    this.monsterClawMaterial = new THREE.MeshStandardMaterial({ color: 0x1e241f, emissive: 0x060a07, roughness: 0.22, metalness: 0.18 });
+    this.monsterEyeMaterial = new THREE.MeshStandardMaterial({ color: 0xffd890, emissive: 0xff5a18, emissiveIntensity: 1.4, roughness: 0.18, metalness: 0.05 });
 
     this.boxMaterials = {
       normal: new THREE.MeshStandardMaterial({ color: 0xffffff, map: normalCrateMap, roughness: 0.54, metalness: 0.06 }),
@@ -289,33 +289,36 @@ class TowerRenderer {
       safe: new THREE.MeshStandardMaterial({ color: 0xffffff, map: safeCrateMap, roughness: 0.38, metalness: 0.18 })
     };
     this.floorRepairMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: heavyCrateMap, roughness: 0.56, metalness: 0.05 });
-    this.crateInteriorMaterial = new THREE.MeshStandardMaterial({ color: 0x0d0907, roughness: 0.72, metalness: 0.02 });
+    this.crateInteriorMaterial = new THREE.MeshStandardMaterial({ color: 0x080503, roughness: 0.78, metalness: 0.02, emissive: 0x100804, emissiveIntensity: 0.22 });
   }
 
   _setupLights() {
-    this.ambient = new THREE.HemisphereLight(0x566452, 0x080907, 0.5);
+    this.ambient = new THREE.HemisphereLight(0x3d4c3e, 0x050604, 0.4);
     this.scene.add(this.ambient);
 
-    this.topLight = new THREE.DirectionalLight(0x8c9a82, 0.72);
+    this.topLight = new THREE.DirectionalLight(0xb7b093, 0.92);
     this.topLight.position.set(-6, this.ceilingY + 5, -4);
     this.topLight.castShadow = true;
-    this.topLight.shadow.mapSize.width = 1536;
-    this.topLight.shadow.mapSize.height = 1536;
+    this.topLight.shadow.mapSize.width = 2048;
+    this.topLight.shadow.mapSize.height = 2048;
     this.topLight.shadow.camera.near = 0.5;
     this.topLight.shadow.camera.far = this.ceilingY + 18;
+    this.topLight.shadow.bias = -0.0009;
+    this.topLight.shadow.normalBias = 0.04;
+    this.topLight.shadow.radius = 2.6;
     this.scene.add(this.topLight.target);
     this.scene.add(this.topLight);
 
-    this.rimLight = new THREE.DirectionalLight(0xc69162, 0.42);
+    this.rimLight = new THREE.DirectionalLight(0xd89a5a, 0.58);
     this.rimLight.position.set(7, 4.8, 6);
     this.scene.add(this.rimLight.target);
     this.scene.add(this.rimLight);
 
-    this.fillLight = new THREE.PointLight(0x3a5646, 0.58, 56, 1.8);
+    this.fillLight = new THREE.PointLight(0x365c48, 0.46, 56, 1.8);
     this.fillLight.position.set(0, 1.2, 0);
     this.scene.add(this.fillLight);
 
-    this.torchLight = new THREE.PointLight(0xe08a32, 2.05, 36, 1.8);
+    this.torchLight = new THREE.PointLight(0xf0a14a, 2.35, 38, 1.7);
     this.torchLight.position.set(0, 3.2, 0);
     this.scene.add(this.torchLight);
 
@@ -393,26 +396,53 @@ class TowerRenderer {
     this.floorData.activeTiles.forEach((tile) => {
       const world = this.cellToWorld(tile.x, tile.y);
       const slabHeight = 0.94;
-      const tiltX = (this._noise(tile.x, tile.y, 3) - 0.5) * 0.045;
-      const tiltZ = (this._noise(tile.x, tile.y, 5) - 0.5) * 0.045;
+      const tiltX = (this._noise(tile.x, tile.y, 3) - 0.5) * 0.08;
+      const tiltZ = (this._noise(tile.x, tile.y, 5) - 0.5) * 0.08;
       const slab = new THREE.Mesh(new THREE.BoxGeometry(this.cellSize, slabHeight, this.cellSize), this.floorEdgeMaterial.clone());
       slab.position.set(world.x, -slabHeight * 0.52, world.z);
       slab.castShadow = true;
       slab.receiveShadow = true;
       this.root.add(slab);
 
-      const stoneHeight = 0.2 + this._noise(tile.x, tile.y, 7) * 0.08;
-      const stone = new THREE.Mesh(new THREE.BoxGeometry(this.cellSize * 0.95, stoneHeight, this.cellSize * 0.95), this.floorMaterial.clone());
+      const stoneHeight = 0.22 + this._noise(tile.x, tile.y, 7) * 0.14;
+      const sunken = this._noise(tile.x, tile.y, 13) > 0.78;
+      const stoneGeometry = new THREE.BoxGeometry(this.cellSize * 0.95, stoneHeight, this.cellSize * 0.95, 3, 1, 3);
+      this._warpBoxGeometry(stoneGeometry, 0.06, 151 + tile.x * 7 + tile.y * 11);
+      const stone = new THREE.Mesh(stoneGeometry, this.floorMaterial.clone());
       stone.position.set(
-        world.x,
-        stoneHeight * 0.5 - 0.02 + this._noise(tile.x, tile.y, 9) * 0.04,
-        world.z
+        world.x + (this._noise(tile.x, tile.y, 61) - 0.5) * 0.08,
+        stoneHeight * 0.5 - 0.02 + this._noise(tile.x, tile.y, 9) * 0.05 - (sunken ? 0.06 : 0),
+        world.z + (this._noise(tile.x, tile.y, 63) - 0.5) * 0.08
       );
       stone.rotation.x = tiltX;
       stone.rotation.z = tiltZ;
-      stone.rotation.y = (this._noise(tile.x, tile.y, 11) - 0.5) * 0.08;
+      stone.rotation.y = (this._noise(tile.x, tile.y, 11) - 0.5) * 0.14;
       stone.receiveShadow = true;
       this.root.add(stone);
+
+      if (this._noise(tile.x, tile.y, 79) > 0.52) {
+        const rubbleCount = 1 + Math.floor(this._noise(tile.x, tile.y, 81) * 2);
+        for (let index = 0; index < rubbleCount; index += 1) {
+          const rubbleGeometry = new THREE.BoxGeometry(
+            0.14 + this._noise(index, tile.x, 83) * 0.22,
+            0.06 + this._noise(index, tile.y, 85) * 0.08,
+            0.14 + this._noise(index, tile.x + tile.y, 87) * 0.22,
+            1, 1, 1
+          );
+          this._warpBoxGeometry(rubbleGeometry, 0.04, 89 + index * 3 + tile.x);
+          const rubble = new THREE.Mesh(rubbleGeometry, this.floorEdgeMaterial.clone());
+          rubble.position.set(
+            world.x + (this._noise(index, tile.x, 91) - 0.5) * this.cellSize * 0.7,
+            stone.position.y + stoneHeight * 0.5 + 0.04,
+            world.z + (this._noise(index, tile.y, 93) - 0.5) * this.cellSize * 0.7
+          );
+          rubble.rotation.y = this._noise(index, tile.x + tile.y, 95) * Math.PI * 2;
+          rubble.rotation.z = (this._noise(index, tile.x, 97) - 0.5) * 0.4;
+          rubble.castShadow = true;
+          rubble.receiveShadow = true;
+          this.root.add(rubble);
+        }
+      }
 
       if (this._noise(tile.x, tile.y, 17) > 0.42) {
         const crack = new THREE.Mesh(
@@ -458,54 +488,145 @@ class TowerRenderer {
     const width = config.width * this.cellSize;
     const depth = config.height * this.cellSize;
     const center = this.cellToWorld((config.width - 1) / 2, (config.height - 1) / 2);
-    const wallThickness = 0.86;
-    const wallHeight = this.ceilingY + 0.7;
+    const wallThickness = 1.18;
+    const wallHeight = this.ceilingY + 0.9;
 
-    [
-      { x: center.x, z: center.z - depth / 2, w: width + wallThickness * 1.5, d: wallThickness, r: 0 },
-      { x: center.x, z: center.z + depth / 2, w: width + wallThickness * 1.5, d: wallThickness, r: 0 },
-      { x: center.x - width / 2, z: center.z, w: depth + wallThickness * 1.5, d: wallThickness, r: Math.PI / 2 },
-      { x: center.x + width / 2, z: center.z, w: depth + wallThickness * 1.5, d: wallThickness, r: Math.PI / 2 }
-    ].forEach((wall) => {
-      const mesh = new THREE.Mesh(new THREE.BoxGeometry(wall.w, wallHeight, wall.d), this.wallMaterial.clone());
-      mesh.position.set(wall.x, wallHeight / 2 - 0.18, wall.z);
+    const walls = [
+      { x: center.x, z: center.z - depth / 2, w: width + wallThickness * 1.8, d: wallThickness, r: 0, axis: 'z', sign: 1 },
+      { x: center.x, z: center.z + depth / 2, w: width + wallThickness * 1.8, d: wallThickness, r: 0, axis: 'z', sign: -1 },
+      { x: center.x - width / 2, z: center.z, w: depth + wallThickness * 1.8, d: wallThickness, r: Math.PI / 2, axis: 'x', sign: 1 },
+      { x: center.x + width / 2, z: center.z, w: depth + wallThickness * 1.8, d: wallThickness, r: Math.PI / 2, axis: 'x', sign: -1 }
+    ];
+
+    walls.forEach((wall, wallIndex) => {
+      const baseGeometry = new THREE.BoxGeometry(wall.w, wallHeight, wall.d, 8, 8, 2);
+      this._warpBoxGeometry(baseGeometry, 0.14, 811 + wallIndex * 31);
+      const mesh = new THREE.Mesh(baseGeometry, this.wallMaterial.clone());
+      mesh.position.set(wall.x, wallHeight / 2 - 0.22, wall.z);
       mesh.rotation.y = wall.r;
       mesh.castShadow = true;
       mesh.receiveShadow = true;
       this.root.add(mesh);
 
-      const trim = new THREE.Mesh(new THREE.BoxGeometry(wall.w * 0.96, 0.48, wall.d + 0.16), this.wallTrimMaterial.clone());
-      trim.position.set(wall.x, 0.12, wall.z);
-      trim.rotation.y = wall.r;
-      trim.castShadow = true;
-      trim.receiveShadow = true;
-      this.root.add(trim);
+      const plinthGeometry = new THREE.BoxGeometry(wall.w * 0.97, 0.82, wall.d + 0.26, 6, 2, 2);
+      this._warpBoxGeometry(plinthGeometry, 0.06, 823 + wallIndex * 29);
+      const plinth = new THREE.Mesh(plinthGeometry, this.wallTrimMaterial.clone());
+      plinth.position.set(wall.x, 0.28, wall.z);
+      plinth.rotation.y = wall.r;
+      plinth.castShadow = true;
+      plinth.receiveShadow = true;
+      this.root.add(plinth);
 
-      const crown = new THREE.Mesh(new THREE.BoxGeometry(wall.w * 0.92, 0.36, wall.d + 0.22), this.wallTrimMaterial.clone());
-      crown.position.set(wall.x, wallHeight - 0.32, wall.z);
+      const beltGeometry = new THREE.BoxGeometry(wall.w * 0.94, 0.26, wall.d + 0.18, 6, 1, 2);
+      this._warpBoxGeometry(beltGeometry, 0.04, 829 + wallIndex * 29);
+      const belt = new THREE.Mesh(beltGeometry, this.wallTrimMaterial.clone());
+      belt.position.set(wall.x, wallHeight * 0.38, wall.z);
+      belt.rotation.y = wall.r;
+      belt.receiveShadow = true;
+      belt.castShadow = true;
+      this.root.add(belt);
+
+      const crownGeometry = new THREE.BoxGeometry(wall.w * 0.93, 0.54, wall.d + 0.34, 6, 2, 2);
+      this._warpBoxGeometry(crownGeometry, 0.05, 833 + wallIndex * 29);
+      const crown = new THREE.Mesh(crownGeometry, this.wallTrimMaterial.clone());
+      crown.position.set(wall.x, wallHeight - 0.42, wall.z);
       crown.rotation.y = wall.r;
       crown.castShadow = true;
       crown.receiveShadow = true;
       this.root.add(crown);
+
+      const courses = 5;
+      const courseHeight = (wallHeight - 1.2) / courses;
+      const wallLength = wall.w - 0.6;
+      for (let course = 0; course < courses; course += 1) {
+        const stagger = course % 2 === 0 ? 0 : 0.5;
+        const blocksPerCourse = 6;
+        const blockWidth = wallLength / blocksPerCourse;
+        for (let block = 0; block < blocksPerCourse + (stagger ? 1 : 0); block += 1) {
+          const seed = 841 + wallIndex * 97 + course * 31 + block * 11;
+          if (this._noise(wallIndex, course * 10 + block, 853) < 0.14) {
+            continue;
+          }
+          const bw = blockWidth * (0.78 + this._noise(seed, 0, 857) * 0.26);
+          const bh = courseHeight * (0.7 + this._noise(seed, 1, 859) * 0.24);
+          const bd = 0.22 + this._noise(seed, 2, 863) * 0.12;
+          const blockGeometry = new THREE.BoxGeometry(bw, bh, bd, 2, 1, 1);
+          this._warpBoxGeometry(blockGeometry, 0.05, seed);
+          const stone = new THREE.Mesh(blockGeometry, this.wallMaterial.clone());
+          const local = -wallLength * 0.5 + (block - stagger) * blockWidth + blockWidth * 0.5;
+          const innerOffset = wall.d * 0.5 + bd * 0.5 - 0.05;
+          const baseY = 0.7 + course * courseHeight + courseHeight * 0.5 + (this._noise(seed, 3, 877) - 0.5) * 0.06;
+          if (wall.axis === 'z') {
+            stone.position.set(wall.x + local, baseY, wall.z + wall.sign * innerOffset);
+          } else {
+            stone.position.set(wall.x + wall.sign * innerOffset, baseY, wall.z + local);
+            stone.rotation.y = Math.PI / 2;
+          }
+          stone.rotation.z = (this._noise(seed, 4, 881) - 0.5) * 0.04;
+          stone.rotation.x = (this._noise(seed, 5, 883) - 0.5) * 0.02;
+          stone.castShadow = true;
+          stone.receiveShadow = true;
+          if (this._noise(seed, 6, 887) < 0.12) {
+            stone.material.color.offsetHSL(0, -0.05, -0.12);
+          }
+          this.root.add(stone);
+        }
+      }
+
+      if (this._noise(wallIndex, 0, 911) > 0.35) {
+        const mossCount = 2 + Math.floor(this._noise(wallIndex, 1, 913) * 3);
+        for (let index = 0; index < mossCount; index += 1) {
+          const moss = new THREE.Mesh(
+            new THREE.PlaneGeometry(0.8 + this._noise(wallIndex, index, 917) * 0.7, 1.4 + this._noise(wallIndex, index, 919) * 0.9),
+            this.mossMaterial.clone()
+          );
+          const local = (this._noise(wallIndex, index, 923) - 0.5) * wall.w * 0.76;
+          const mossY = 1.6 + this._noise(wallIndex, index, 929) * (wallHeight - 3.2);
+          const mossInner = wall.d * 0.5 + 0.01;
+          if (wall.axis === 'z') {
+            moss.position.set(wall.x + local, mossY, wall.z + wall.sign * mossInner);
+            moss.rotation.y = wall.sign > 0 ? 0 : Math.PI;
+          } else {
+            moss.position.set(wall.x + wall.sign * mossInner, mossY, wall.z + local);
+            moss.rotation.y = wall.sign > 0 ? Math.PI / 2 : -Math.PI / 2;
+          }
+          moss.rotation.z = (this._noise(wallIndex, index, 937) - 0.5) * 0.2;
+          moss.receiveShadow = true;
+          this.root.add(moss);
+        }
+      }
     });
 
-    const ceiling = new THREE.Mesh(
-      new THREE.BoxGeometry(width + wallThickness * 2.6, 0.9, depth + wallThickness * 2.6),
-      this.ceilingMaterial.clone()
+    this._buildCeiling(center, width, depth, wallThickness);
+    this._buildFallenMasonry(center, width, depth, wallThickness);
+    this._buildButtresses(center, width, depth, wallThickness);
+    this._buildWallTorches(center, width, depth, wallThickness);
+  }
+
+  _buildCeiling(center, width, depth, wallThickness) {
+    const ceilingGeometry = new THREE.BoxGeometry(
+      width + wallThickness * 2.6,
+      1.2,
+      depth + wallThickness * 2.6,
+      Math.max(4, this.floorData.config.width),
+      2,
+      Math.max(4, this.floorData.config.height)
     );
-    ceiling.position.set(center.x, this.ceilingY + 0.45, center.z);
+    this._warpBoxGeometry(ceilingGeometry, 0.09, 601);
+    const ceiling = new THREE.Mesh(ceilingGeometry, this.ceilingMaterial.clone());
+    ceiling.position.set(center.x, this.ceilingY + 0.52, center.z);
     ceiling.castShadow = true;
     ceiling.receiveShadow = true;
     this.root.add(ceiling);
 
+    const config = this.floorData.config;
     for (let index = 0; index < config.width; index += 2) {
-      const beam = new THREE.Mesh(
-        new THREE.BoxGeometry(0.36, 0.62, depth + wallThickness * 1.2),
-        this.wallTrimMaterial.clone()
-      );
+      const beamGeometry = new THREE.BoxGeometry(0.48, 0.78, depth + wallThickness * 1.4, 1, 2, 6);
+      this._warpBoxGeometry(beamGeometry, 0.04, 611 + index * 13);
+      const beam = new THREE.Mesh(beamGeometry, this.wallTrimMaterial.clone());
       beam.position.set(
         center.x - width / 2 + this.cellSize * 0.5 + index * this.cellSize,
-        this.ceilingY - 0.55,
+        this.ceilingY - 0.48,
         center.z
       );
       beam.castShadow = true;
@@ -513,8 +634,76 @@ class TowerRenderer {
       this.root.add(beam);
     }
 
-    this._buildButtresses(center, width, depth, wallThickness);
-    this._buildWallTorches(center, width, depth, wallThickness);
+    for (let index = 1; index < config.height; index += 2) {
+      const crossGeometry = new THREE.BoxGeometry(width + wallThickness * 1.4, 0.3, 0.34, 6, 1, 1);
+      this._warpBoxGeometry(crossGeometry, 0.03, 617 + index * 13);
+      const cross = new THREE.Mesh(crossGeometry, this.wallTrimMaterial.clone());
+      cross.position.set(
+        center.x,
+        this.ceilingY - 0.2,
+        center.z - depth / 2 + this.cellSize * 0.5 + index * this.cellSize
+      );
+      cross.castShadow = true;
+      cross.receiveShadow = true;
+      this.root.add(cross);
+    }
+
+    const stalCount = 4 + Math.floor(this._noise(config.width, config.height, 623) * 3);
+    for (let index = 0; index < stalCount; index += 1) {
+      const stalHeight = 0.4 + this._noise(index, config.width, 631) * 0.7;
+      const stal = new THREE.Mesh(
+        this._warpOrganicGeometry(new THREE.ConeGeometry(0.12 + this._noise(index, 0, 637) * 0.1, stalHeight, 7), 0.04, 641 + index * 9),
+        this.ceilingMaterial.clone()
+      );
+      stal.position.set(
+        center.x + (this._noise(index, 1, 643) - 0.5) * width * 0.8,
+        this.ceilingY - stalHeight * 0.5 - 0.08,
+        center.z + (this._noise(index, 2, 647) - 0.5) * depth * 0.8
+      );
+      stal.rotation.x = Math.PI;
+      stal.rotation.z = (this._noise(index, 3, 653) - 0.5) * 0.2;
+      stal.castShadow = true;
+      stal.receiveShadow = true;
+      this.root.add(stal);
+    }
+  }
+
+  _buildFallenMasonry(center, width, depth, wallThickness) {
+    const count = 6 + Math.floor(this._noise(this.floorData.config.width, this.floorData.config.height, 701) * 4);
+    for (let index = 0; index < count; index += 1) {
+      const side = Math.floor(this._noise(index, 0, 707) * 4);
+      const along = (this._noise(index, 1, 709) - 0.5) * 0.9;
+      const inset = 0.2 + this._noise(index, 2, 711) * 0.7;
+      let px = center.x;
+      let pz = center.z;
+      if (side === 0) {
+        px = center.x + along * width * 0.5;
+        pz = center.z - depth * 0.5 + wallThickness * 0.5 + inset;
+      } else if (side === 1) {
+        px = center.x + along * width * 0.5;
+        pz = center.z + depth * 0.5 - wallThickness * 0.5 - inset;
+      } else if (side === 2) {
+        px = center.x - width * 0.5 + wallThickness * 0.5 + inset;
+        pz = center.z + along * depth * 0.5;
+      } else {
+        px = center.x + width * 0.5 - wallThickness * 0.5 - inset;
+        pz = center.z + along * depth * 0.5;
+      }
+
+      const chunkWidth = 0.35 + this._noise(index, 3, 717) * 0.5;
+      const chunkHeight = 0.2 + this._noise(index, 4, 719) * 0.32;
+      const chunkDepth = 0.3 + this._noise(index, 5, 723) * 0.5;
+      const geometry = new THREE.BoxGeometry(chunkWidth, chunkHeight, chunkDepth, 2, 1, 2);
+      this._warpBoxGeometry(geometry, 0.08, 727 + index * 7);
+      const chunk = new THREE.Mesh(geometry, this.wallMaterial.clone());
+      chunk.position.set(px, chunkHeight * 0.5 + 0.02, pz);
+      chunk.rotation.x = (this._noise(index, 6, 733) - 0.5) * 0.3;
+      chunk.rotation.y = this._noise(index, 7, 739) * Math.PI * 2;
+      chunk.rotation.z = (this._noise(index, 8, 743) - 0.5) * 0.4;
+      chunk.castShadow = true;
+      chunk.receiveShadow = true;
+      this.root.add(chunk);
+    }
   }
 
   _buildHatches() {
@@ -527,19 +716,24 @@ class TowerRenderer {
         : 0.08;
       const group = new THREE.Group();
       const apron = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.86, 0.86, 0.04, 32),
+        new THREE.CylinderGeometry(0.9, 0.9, 0.05, 32),
         this.floorInsetMaterial.clone()
       );
+      apron.material.color.offsetHSL(0.02, 0.04, -0.04);
       const ringMaterial = this.hatchRingMaterial.clone();
-      ringMaterial.roughness = 0.24;
-      ringMaterial.metalness = 0.76;
+      ringMaterial.roughness = 0.2;
+      ringMaterial.metalness = 0.82;
+      ringMaterial.emissive = new THREE.Color(0x3b2410);
+      ringMaterial.emissiveIntensity = 0.28;
       const innerRingMaterial = this.torchBracketMaterial.clone();
-      innerRingMaterial.roughness = 0.18;
-      innerRingMaterial.metalness = 0.82;
+      innerRingMaterial.roughness = 0.16;
+      innerRingMaterial.metalness = 0.86;
+      innerRingMaterial.emissive = new THREE.Color(0x512a0d);
+      innerRingMaterial.emissiveIntensity = 0.45;
       const lidMaterial = this.hatchRingMaterial.clone();
       lidMaterial.color.offsetHSL(0, -0.02, -0.14);
-      lidMaterial.roughness = 0.28;
-      lidMaterial.metalness = 0.7;
+      lidMaterial.roughness = 0.26;
+      lidMaterial.metalness = 0.72;
 
       const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.76, 0.76, 0.08, 32), ringMaterial);
       const lip = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.62, 0.05, 28), innerRingMaterial);
@@ -1010,6 +1204,61 @@ class TowerRenderer {
       group.add(splinter);
     }
 
+    const mossCount = this._noise(box.x, box.y, 571) > 0.48 ? 1 + Math.floor(this._noise(box.x, box.y, 573) * 2) : 0;
+    for (let index = 0; index < mossCount; index += 1) {
+      const face = Math.floor(this._noise(index, box.x + box.y, 577) * 4);
+      const mossWidth = 0.4 + this._noise(index, box.x, 579) * 0.6;
+      const mossHeight = 0.3 + this._noise(index, box.y, 583) * 0.5;
+      const moss = new THREE.Mesh(new THREE.PlaneGeometry(mossWidth, mossHeight), this.mossMaterial.clone());
+      if (face === 0) {
+        moss.position.set(
+          (this._noise(index, box.x, 587) - 0.5) * width * 0.5,
+          (this._noise(index, box.y, 589) - 0.3) * height * 0.4,
+          halfD + 0.02
+        );
+      } else if (face === 1) {
+        moss.position.set(
+          (this._noise(index, box.x, 591) - 0.5) * width * 0.5,
+          (this._noise(index, box.y, 593) - 0.3) * height * 0.4,
+          -halfD - 0.02
+        );
+        moss.rotation.y = Math.PI;
+      } else if (face === 2) {
+        moss.position.set(
+          halfW + 0.02,
+          (this._noise(index, box.y, 597) - 0.3) * height * 0.4,
+          (this._noise(index, box.x, 599) - 0.5) * depth * 0.5
+        );
+        moss.rotation.y = Math.PI / 2;
+      } else {
+        moss.position.set(
+          -halfW - 0.02,
+          (this._noise(index, box.y, 601) - 0.3) * height * 0.4,
+          (this._noise(index, box.x, 603) - 0.5) * depth * 0.5
+        );
+        moss.rotation.y = -Math.PI / 2;
+      }
+      moss.rotation.z = (this._noise(index, box.x, 607) - 0.5) * 0.25;
+      moss.receiveShadow = true;
+      group.add(moss);
+    }
+
+    if (this._noise(box.x, box.y, 611) > 0.55) {
+      const brokenCornerGeometry = new THREE.BoxGeometry(0.28, 0.22, 0.24, 2, 1, 2);
+      this._warpBoxGeometry(brokenCornerGeometry, 0.05, 613 + box.x * 5 + box.y * 7);
+      const brokenCorner = new THREE.Mesh(brokenCornerGeometry, materials.wood);
+      const cornerSign = this._noise(box.x, box.y, 617) > 0.5 ? 1 : -1;
+      brokenCorner.position.set(
+        cornerSign * (halfW - 0.1),
+        halfH - 0.08 + this._noise(box.x, box.y, 619) * 0.12,
+        (this._noise(box.x, box.y, 621) > 0.5 ? 1 : -1) * (halfD - 0.1)
+      );
+      brokenCorner.rotation.y = this._noise(box.x, box.y, 623) * Math.PI * 2;
+      brokenCorner.rotation.z = (this._noise(box.x, box.y, 627) - 0.5) * 0.5;
+      brokenCorner.castShadow = true;
+      group.add(brokenCorner);
+    }
+
     return emissiveMaterials;
   }
 
@@ -1034,6 +1283,21 @@ class TowerRenderer {
     return material;
   }
 
+  _warpBoxGeometry(geometry, strength, seed = 0) {
+    const positions = geometry.attributes.position;
+    for (let index = 0; index < positions.count; index += 1) {
+      const x = positions.getX(index);
+      const y = positions.getY(index);
+      const z = positions.getZ(index);
+      const nx = (this._noise(index, seed, 701) - 0.5) * strength;
+      const ny = (this._noise(index, seed, 709) - 0.5) * strength * 0.62;
+      const nz = (this._noise(index, seed, 719) - 0.5) * strength;
+      positions.setXYZ(index, x + nx, y + ny, z + nz);
+    }
+    geometry.computeVertexNormals();
+    return geometry;
+  }
+
   _warpOrganicGeometry(geometry, strength, seed = 0) {
     geometry.computeBoundingBox();
     const bounds = geometry.boundingBox;
@@ -1049,16 +1313,19 @@ class TowerRenderer {
       let y = positions.getY(index);
       let z = positions.getZ(index);
 
-      const radial = Math.hypot(x, z) || 0.001;
+      const radial = Math.hypot(x, z);
+      // Preserve the original radial direction so vertices near the center cannot spike outward.
+      const radialDirX = radial > 0.0001 ? x / radial : 0;
+      const radialDirZ = radial > 0.0001 ? z / radial : 0;
       const radialNoise = (this._noise(index, seed, 571) - 0.5) * strength;
       const axialNoise = (this._noise(index, seed, 577) - 0.5) * strength * 0.42;
       const twist = (this._noise(index, seed, 587) - 0.5) * strength * 0.36;
       const asymmetry = (this._noise(index, seed, 593) - 0.5) * strength * 0.3;
       const yRatio = y / spanY;
 
-      x += (x / radial) * radialNoise + asymmetry * (0.35 + Math.abs(yRatio) * 0.4);
-      z += (z / radial) * radialNoise - twist * yRatio;
-      y += axialNoise + twist * (x / radial) * 0.35;
+      x += radialDirX * radialNoise + asymmetry * (0.35 + Math.abs(yRatio) * 0.4);
+      z += radialDirZ * radialNoise - twist * yRatio;
+      y += axialNoise + twist * radialDirX * 0.35;
 
       positions.setXYZ(index, x, y, z);
     }
@@ -1222,28 +1489,33 @@ class TowerRenderer {
 
   _createMonsterTendril(seed, material) {
     const tendril = new THREE.Group();
+    const curl = (this._noise(seed, 0, 619) - 0.5) * 0.4;
+    const flare = (this._noise(seed, 0, 623) - 0.5) * 0.3;
+    let offsetX = 0;
     let offsetY = 0;
     let offsetZ = 0;
 
     for (let index = 0; index < 3; index += 1) {
       const segment = new THREE.Mesh(
         this._warpOrganicGeometry(
-          new THREE.CylinderGeometry(0.09 - index * 0.018, 0.14 - index * 0.022, 0.56 - index * 0.08, 9),
-          0.06,
+          new THREE.CylinderGeometry(0.07 - index * 0.014, 0.1 - index * 0.016, 0.3 - index * 0.04, 9),
+          0.05,
           seed + index * 11
         ),
         material
       );
-      segment.position.set(0, offsetY - 0.24, offsetZ + 0.16);
-      segment.rotation.x = 0.42 + index * 0.24;
-      segment.rotation.z = (this._noise(seed, index, 601) - 0.5) * 0.42;
+      const bend = 0.6 + index * 0.4;
+      segment.position.set(offsetX, offsetY - 0.12, offsetZ + 0.08);
+      segment.rotation.x = bend;
+      segment.rotation.z = flare + (this._noise(seed, index, 601) - 0.5) * 0.4;
       tendril.add(segment);
-      offsetY -= 0.34;
-      offsetZ += 0.2;
+      offsetX += Math.sin(bend) * curl * 0.22;
+      offsetY -= 0.08 + index * 0.02;
+      offsetZ += 0.18;
     }
 
-    tendril.userData.baseRotationX = 0.22 + (this._noise(seed, 0, 607) - 0.5) * 0.18;
-    tendril.userData.baseRotationZ = (this._noise(seed, 0, 613) - 0.5) * 0.24;
+    tendril.userData.baseRotationX = 0.18 + (this._noise(seed, 0, 607) - 0.5) * 0.2;
+    tendril.userData.baseRotationZ = (this._noise(seed, 0, 613) - 0.5) * 0.3;
     tendril.rotation.x = tendril.userData.baseRotationX;
     tendril.rotation.z = tendril.userData.baseRotationZ;
     return tendril;
@@ -1262,6 +1534,7 @@ class TowerRenderer {
       wet: this._registerMonsterMaterial(this.monsterWetMaterial.clone(), 1.2),
       under: this._registerMonsterMaterial(this.monsterWetMaterial.clone(), 0.84),
       bone: this._registerMonsterMaterial(this.monsterBoneMaterial.clone(), 0.42),
+      claw: this._registerMonsterMaterial(this.monsterClawMaterial.clone(), 0.32),
       eyeHot: this._registerMonsterMaterial(this.monsterEyeMaterial.clone(), 1.55),
       eyeDim: this._registerMonsterMaterial(this.monsterEyeMaterial.clone(), 1.18)
     };
@@ -1269,74 +1542,157 @@ class TowerRenderer {
     materials.fleshDark.color.offsetHSL(0, -0.06, -0.08);
     materials.under.color.offsetHSL(0, -0.02, -0.12);
     materials.bone.color.offsetHSL(0.02, -0.08, 0.02);
-    materials.eyeDim.color.offsetHSL(-0.02, -0.03, -0.08);
-
-    const mantle = new THREE.Mesh(
-      this._warpOrganicGeometry(new THREE.SphereGeometry(0.76, 18, 14), 0.11, 801),
-      materials.flesh
-    );
-    mantle.position.set(0, 0.08, -0.08);
-    mantle.scale.set(1.2, 0.34, 1.08);
-
-    const body = new THREE.Mesh(
-      this._warpOrganicGeometry(new THREE.SphereGeometry(0.64, 18, 14), 0.16, 811),
-      materials.wet
-    );
-    body.position.set(0, -0.08, 0.08);
-    body.scale.set(1.04, 0.62, 1.28);
+    materials.eyeDim.color.offsetHSL(-0.04, -0.05, -0.12);
+    materials.eyeDim.emissive.offsetHSL(0, 0, -0.15);
 
     const anchorPlate = new THREE.Mesh(
-      this._warpOrganicGeometry(new THREE.CylinderGeometry(0.44, 0.58, 0.24, 18), 0.06, 819),
+      this._createMonsterTorsoGeometry(819),
       materials.fleshDark
     );
-    anchorPlate.position.set(0, 0.26, -0.2);
-    anchorPlate.scale.set(1.18, 0.34, 1.02);
+    anchorPlate.position.set(0, 0.18, -0.18);
+    anchorPlate.scale.set(0.54, 0.24, 0.58);
+    anchorPlate.rotation.x = 0.24;
 
-    const throat = new THREE.Mesh(
-      this._warpOrganicGeometry(new THREE.CylinderGeometry(0.12, 0.24, 0.56, 12), 0.08, 829),
+    const pelvis = new THREE.Mesh(
+      this._createMonsterTorsoGeometry(801),
+      materials.flesh
+    );
+    pelvis.position.set(0, -0.12, 0.02);
+    pelvis.scale.set(0.58, 0.42, 0.64);
+    pelvis.rotation.x = 0.18;
+
+    const torso = new THREE.Mesh(
+      this._createMonsterTorsoGeometry(811),
       materials.wet
     );
-    throat.position.set(0, -0.18, 0.52);
-    throat.rotation.x = -0.86;
+    torso.position.set(0, 0.12, 0.18);
+    torso.scale.set(0.72, 0.56, 0.82);
+    torso.rotation.x = -0.18;
 
-    const mawPivot = new THREE.Group();
-    mawPivot.position.set(0, -0.28, 0.76);
-    mawPivot.userData.baseRotationX = 0.08;
-    mawPivot.rotation.x = mawPivot.userData.baseRotationX;
-
-    const mawRing = new THREE.Mesh(
-      this._warpOrganicGeometry(new THREE.TorusGeometry(0.22, 0.07, 10, 18), 0.04, 839),
+    const shoulderMass = new THREE.Mesh(
+      this._createMonsterTorsoGeometry(817),
       materials.fleshDark
     );
+    shoulderMass.position.set(0, 0.46, -0.04);
+    shoulderMass.scale.set(0.78, 0.34, 0.74);
+    shoulderMass.rotation.x = 0.12;
+
+    const ribChest = new THREE.Mesh(
+      this._warpOrganicGeometry(new THREE.TorusGeometry(0.34, 0.08, 10, 22, Math.PI * 1.18), 0.03, 821),
+      materials.bone
+    );
+    ribChest.position.set(0, 0.04, 0.34);
+    ribChest.rotation.x = 0.96;
+    ribChest.rotation.z = Math.PI;
+    ribChest.scale.set(1.22, 0.8, 1.08);
+
+    const neck = new THREE.Mesh(
+      this._warpOrganicGeometry(new THREE.CylinderGeometry(0.14, 0.2, 0.46, 12), 0.04, 827),
+      materials.fleshDark
+    );
+    neck.position.set(0, 0.08, 0.56);
+    neck.rotation.x = 1.1;
+
+    const head = new THREE.Mesh(
+      this._createMonsterHeadGeometry(833),
+      materials.fleshDark
+    );
+    head.position.set(0, 0.02, 0.94);
+    head.scale.set(0.72, 0.62, 0.82);
+    head.rotation.x = -0.18;
+
+    const skullCap = new THREE.Mesh(
+      this._createMonsterHeadGeometry(835),
+      materials.flesh
+    );
+    skullCap.position.set(0, 0.2, 0.86);
+    skullCap.scale.set(0.56, 0.34, 0.64);
+    skullCap.rotation.x = -0.22;
+
+    const snout = new THREE.Mesh(
+      this._createMonsterJawGeometry(837),
+      materials.wet
+    );
+    snout.position.set(0, -0.04, 1.18);
+    snout.scale.set(0.72, 0.68, 0.84);
+    snout.rotation.x = Math.PI / 2;
+
+    const browRidge = new THREE.Mesh(
+      this._warpOrganicGeometry(new THREE.TorusGeometry(0.28, 0.08, 8, 18, Math.PI), 0.04, 855),
+      materials.bone
+    );
+    browRidge.position.set(0, 0.2, 1.02);
+    browRidge.rotation.z = Math.PI;
+    browRidge.scale.set(1.28, 0.7, 0.9);
+
+    const crownSpine = new THREE.Mesh(
+      this._warpOrganicGeometry(new THREE.ConeGeometry(0.12, 0.56, 7), 0.04, 857),
+      materials.bone
+    );
+    crownSpine.position.set(0, 0.72, 0.66);
+    crownSpine.rotation.x = -0.44;
+
+    const mawPivot = new THREE.Group();
+    mawPivot.position.set(0, -0.12, 1.18);
+    mawPivot.userData.baseRotationX = 0.18;
+    mawPivot.rotation.x = mawPivot.userData.baseRotationX;
+
+    const mawShell = new THREE.Mesh(
+      this._createMonsterJawGeometry(839),
+      materials.fleshDark
+    );
+    mawShell.rotation.x = Math.PI / 2;
+    mawShell.scale.set(1.06, 0.94, 1.08);
+
+    const mawRing = new THREE.Mesh(
+      this._warpOrganicGeometry(new THREE.TorusGeometry(0.24, 0.08, 10, 20), 0.04, 841),
+      materials.wet
+    );
     mawRing.rotation.x = Math.PI / 2;
-    mawRing.scale.set(1.08, 0.88, 1);
+    mawRing.scale.set(1.06, 0.9, 1);
 
     const mawInner = new THREE.Mesh(
-      this._warpOrganicGeometry(new THREE.CylinderGeometry(0.14, 0.22, 0.22, 16, 1, true), 0.03, 847),
+      this._warpOrganicGeometry(new THREE.CylinderGeometry(0.14, 0.24, 0.34, 18, 1, true), 0.03, 847),
       materials.under
     );
     mawInner.rotation.x = Math.PI / 2;
-    mawInner.position.z = 0.02;
+    mawInner.position.z = 0.04;
 
-    for (let index = 0; index < 5; index += 1) {
+    for (let index = 0; index < 9; index += 1) {
+      const angle = -Math.PI * 0.46 + (index / 8) * Math.PI * 0.92;
+      const toothHeight = 0.14 + (index % 2 === 0 ? 0.06 : 0.02);
       const tooth = new THREE.Mesh(
-        new THREE.ConeGeometry(0.028 + index * 0.004, 0.12 + index * 0.015, 5),
+        new THREE.ConeGeometry(0.028 + (index % 2 === 0 ? 0.008 : 0.004), toothHeight, 5),
         materials.bone
       );
-      const angle = -0.52 + index * 0.26;
-      tooth.position.set(Math.sin(angle) * 0.17, -0.04 + index * 0.01, 0.12 + Math.cos(angle) * 0.1);
-      tooth.rotation.x = Math.PI * 0.62;
-      tooth.rotation.z = angle * 0.22;
+      tooth.position.set(Math.sin(angle) * 0.23, -0.02 + Math.cos(angle) * 0.05, 0.15 + Math.cos(angle) * 0.08);
+      tooth.rotation.x = Math.PI * 0.62 + (index % 2 === 0 ? 0 : -0.1);
+      tooth.rotation.z = angle * 0.24;
+      mawPivot.add(tooth);
+    }
+
+    for (let index = 0; index < 5; index += 1) {
+      const angle = Math.PI * 0.54 + (index / 4) * Math.PI * 0.92;
+      const tooth = new THREE.Mesh(
+        new THREE.ConeGeometry(0.026, 0.1 + (index === 2 ? 0.05 : 0), 5),
+        materials.bone
+      );
+      tooth.position.set(Math.sin(angle) * 0.2, -0.02 + Math.cos(angle) * 0.04, 0.14 + Math.cos(angle) * 0.06);
+      tooth.rotation.x = Math.PI * 0.38;
+      tooth.rotation.z = angle * 0.26;
       mawPivot.add(tooth);
     }
 
     [
-      { x: -0.22, y: 0.02, z: 0.52, scale: 1.02, material: materials.eyeHot },
-      { x: -0.08, y: 0.1, z: 0.62, scale: 0.82, material: materials.eyeDim },
-      { x: 0.1, y: 0.08, z: 0.66, scale: 0.72, material: materials.eyeHot },
-      { x: 0.24, y: -0.02, z: 0.56, scale: 0.62, material: materials.eyeDim }
+      { x: -0.24, y: 0.08, z: 1.02, scale: 1.06, material: materials.eyeHot },
+      { x: 0.22, y: 0.1, z: 1.01, scale: 0.94, material: materials.eyeHot },
+      { x: -0.36, y: -0.08, z: 0.82, scale: 0.76, material: materials.eyeDim },
+      { x: 0.34, y: -0.1, z: 0.84, scale: 0.74, material: materials.eyeDim },
+      { x: -0.08, y: 0.26, z: 0.94, scale: 0.6, material: materials.eyeDim },
+      { x: 0.1, y: 0.28, z: 0.96, scale: 0.58, material: materials.eyeDim },
+      { x: 0.02, y: -0.02, z: 1.18, scale: 0.42, material: materials.eyeHot }
     ].forEach((eyeConfig) => {
-      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 10), eyeConfig.material);
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.065, 12, 10), eyeConfig.material);
       eye.position.set(eyeConfig.x, eyeConfig.y, eyeConfig.z);
       eye.scale.setScalar(eyeConfig.scale);
       eye.userData.baseScale = eyeConfig.scale;
@@ -1344,34 +1700,95 @@ class TowerRenderer {
       this.monsterGroup.add(eye);
     });
 
-    for (let index = 0; index < 4; index += 1) {
+    const ribSpines = new THREE.Group();
+    for (let index = 0; index < 5; index += 1) {
+      const side = index - 2;
+      const lateral = side * 0.18;
+      const spineHeight = 0.24 + (2 - Math.abs(side)) * 0.08;
+      const spine = new THREE.Mesh(
+        this._warpOrganicGeometry(new THREE.ConeGeometry(0.05, spineHeight, 6), 0.03, 905 + index * 13),
+        materials.bone
+      );
+      spine.position.set(lateral, 0.34 - Math.abs(side) * 0.03, -0.34 - Math.abs(side) * 0.06);
+      spine.rotation.x = -0.92 + Math.abs(side) * 0.12;
+      spine.rotation.z = side * 0.18;
+      ribSpines.add(spine);
+    }
+
+    const shoulderHooks = new THREE.Group();
+    [-1, 1].forEach((side, index) => {
+      const hook = new THREE.Group();
+
+      const upper = new THREE.Mesh(
+        this._warpOrganicGeometry(new THREE.CylinderGeometry(0.07, 0.11, 0.34, 10), 0.05, 951 + index * 17),
+        materials.wet
+      );
+      upper.position.set(0, -0.18, 0);
+      upper.rotation.z = side * 0.88;
+      upper.rotation.x = 0.46;
+
+      const claw = new THREE.Mesh(
+        new THREE.ConeGeometry(0.05, 0.26, 6),
+        materials.claw
+      );
+      claw.position.set(side * 0.24, -0.32, 0.3);
+      claw.rotation.x = -2.32;
+      claw.rotation.z = side * 0.42;
+
+      hook.add(upper, claw);
+      hook.position.set(side * 0.52, 0.26, -0.08);
+      hook.scale.setScalar(0.88);
+      shoulderHooks.add(hook);
+    });
+
+    [-1, 1].forEach((side, index) => {
+      const arm = this._createMonsterArm(side, materials, 1001 + index * 31);
+      arm.scale.set(0.56, 0.66, 0.58);
+      arm.position.x *= 0.82;
+      arm.position.y -= 0.04;
+      arm.position.z -= 0.04;
+      arm.rotation.z += side * 0.12;
+      arm.rotation.x = 0.08;
+      this.monsterGroup.add(arm);
+    });
+
+    [-1, 1].forEach((side, index) => {
+      const leg = this._createMonsterLeg(side, materials, 1101 + index * 29);
+      leg.scale.set(0.46, 0.56, 0.48);
+      leg.position.x *= 0.94;
+      leg.position.y += 0.34;
+      leg.position.z -= 0.06;
+      leg.rotation.x = 0.08;
+      this.monsterGroup.add(leg);
+    });
+
+    for (let index = 0; index < 3; index += 1) {
       const tendril = this._createMonsterTendril(871 + index * 17, materials.wet);
-      tendril.scale.setScalar(0.52 + index * 0.05);
-      tendril.position.set(-0.28 + index * 0.18, -0.1 + index * 0.04, 0.18 + index * 0.12);
+      tendril.scale.setScalar(0.3 + index * 0.04);
+      const angle = -0.96 + index * 0.96;
+      tendril.position.set(Math.sin(angle) * 0.42, 0.2 - index * 0.04, -0.3 + Math.cos(angle) * 0.16);
       this.monsterTendrilNodes.push(tendril);
       this.monsterGroup.add(tendril);
     }
 
-    for (let index = 0; index < 3; index += 1) {
-      const droplet = new THREE.Mesh(
-        this._warpOrganicGeometry(new THREE.ConeGeometry(0.08 - index * 0.012, 0.34 + index * 0.06, 8), 0.04, 903 + index * 11),
-        materials.wet
-      );
-      droplet.position.set(-0.16 + index * 0.16, -0.3 - index * 0.04, -0.28 - index * 0.12);
-      droplet.rotation.x = Math.PI;
-      this.monsterGroup.add(droplet);
-    }
-
-    const tail = new THREE.Mesh(
-      this._warpOrganicGeometry(new THREE.CylinderGeometry(0.08, 0.16, 0.72, 12), 0.06, 941),
-      materials.wet
-    );
-    tail.position.set(0, -0.08, -0.66);
-    tail.rotation.x = 1.04;
-
-    mawPivot.add(mawRing, mawInner);
+    mawPivot.add(mawShell, mawRing, mawInner);
     this.monsterJawPivot = mawPivot;
-    this.monsterGroup.add(anchorPlate, mantle, body, throat, mawPivot, tail);
+    this.monsterGroup.add(
+      anchorPlate,
+      pelvis,
+      torso,
+      shoulderMass,
+      ribChest,
+      neck,
+      head,
+      skullCap,
+      snout,
+      browRidge,
+      crownSpine,
+      ribSpines,
+      shoulderHooks,
+      mawPivot
+    );
     this.monsterGroup.traverse((child) => {
       if (child.isMesh) {
         child.castShadow = true;
@@ -1384,25 +1801,31 @@ class TowerRenderer {
   }
 
   _buildQuestionCard() {
+    const anchor = new THREE.Group();
     const group = new THREE.Group();
+    const panelWidth = this.cellSize * 0.72;
+    const panelHeight = this.cellSize * 0.54;
     const outerFrame = new THREE.Mesh(
-      new THREE.BoxGeometry(this.cellSize * 1.18, this.cellSize * 1.02, 0.14),
+      new THREE.BoxGeometry(panelWidth + 0.24, panelHeight + 0.18, 0.06),
       this.wallTrimMaterial.clone()
     );
     const plate = new THREE.Mesh(
-      new THREE.BoxGeometry(this.cellSize * 1.08, this.cellSize * 0.92, 0.07),
+      new THREE.BoxGeometry(panelWidth + 0.1, panelHeight + 0.08, 0.04),
       this.floorEdgeMaterial.clone()
     );
+    plate.material.color.offsetHSL(0.02, 0.04, 0.06);
     const innerFrame = new THREE.Mesh(
-      new THREE.BoxGeometry(this.cellSize * 1.1, this.cellSize * 0.94, 0.05),
+      new THREE.BoxGeometry(panelWidth + 0.14, panelHeight + 0.12, 0.028),
       this.floorInsetMaterial.clone()
     );
+    innerFrame.material.emissive = new THREE.Color(0x2a1906);
+    innerFrame.material.emissiveIntensity = 0.35;
     const glow = new THREE.Mesh(
-      new THREE.PlaneGeometry(this.cellSize * 1.2, this.cellSize * 1.04),
+      new THREE.PlaneGeometry(panelWidth + 0.34, panelHeight + 0.26),
       new THREE.MeshBasicMaterial({
-        color: 0xc58a3f,
+        color: 0xe1a35a,
         transparent: true,
-        opacity: 0.08,
+        opacity: 0.16,
         depthWrite: false,
         side: THREE.DoubleSide
       })
@@ -1410,34 +1833,40 @@ class TowerRenderer {
 
     const material = new THREE.MeshStandardMaterial({
       map: this.questionTexture,
-      color: 0xd8c594,
+      color: 0xf3e3c0,
       transparent: true,
       side: THREE.DoubleSide,
       depthWrite: false,
       alphaTest: 0.02,
-      roughness: 0.82,
+      roughness: 0.72,
       metalness: 0.02,
+      emissive: 0x1a1105,
+      emissiveIntensity: 0.4,
       polygonOffset: true,
       polygonOffsetFactor: -2,
       polygonOffsetUnits: -2
     });
     const plane = new THREE.Mesh(
-      new THREE.PlaneGeometry(this.cellSize * 0.96, this.cellSize * 0.82),
+      new THREE.PlaneGeometry(panelWidth, panelHeight),
       material
     );
-    plate.position.z = 0.015;
-    innerFrame.position.z = 0.05;
-    glow.position.z = -0.05;
-    plane.position.z = 0.082;
+    plate.position.z = 0.012;
+    innerFrame.position.z = 0.032;
+    glow.position.z = -0.02;
+    plane.position.z = 0.05;
     plane.renderOrder = 6;
     [outerFrame, plate, innerFrame].forEach((mesh) => {
       mesh.castShadow = true;
       mesh.receiveShadow = true;
     });
     group.add(glow, outerFrame, plate, innerFrame, plane);
-    group.visible = false;
-    this.root.add(group);
-    this.questionPanelGroup = group;
+    group.rotation.x = -Math.PI / 2;
+    anchor.add(group);
+    anchor.visible = false;
+    anchor.userData.panelWidth = panelWidth + 0.34;
+    anchor.userData.panelHeight = panelHeight + 0.26;
+    this.root.add(anchor);
+    this.questionPanelGroup = anchor;
     this.questionPlane = plane;
   }
 
@@ -1476,23 +1905,68 @@ class TowerRenderer {
       }
       seen.add(key);
 
-      const pillar = new THREE.Mesh(
-        new THREE.BoxGeometry(0.78, this.ceilingY + 0.26, 0.7),
-        this.columnMaterial.clone()
-      );
+      const pillarSeed = 951 + Math.floor(anchor.x * 13 + anchor.z * 17);
+      const pillarGeometry = new THREE.BoxGeometry(0.92, this.ceilingY + 0.26, 0.82, 2, 6, 2);
+      this._warpBoxGeometry(pillarGeometry, 0.08, pillarSeed);
+      const pillar = new THREE.Mesh(pillarGeometry, this.columnMaterial.clone());
       pillar.position.set(anchor.x, this.ceilingY * 0.5, anchor.z);
       pillar.castShadow = true;
       pillar.receiveShadow = true;
       this.root.add(pillar);
 
-      if (this._noise(anchor.x, anchor.z, 41) > 0.48) {
+      const baseGeometry = new THREE.BoxGeometry(1.22, 0.5, 1.12, 2, 1, 2);
+      this._warpBoxGeometry(baseGeometry, 0.05, pillarSeed + 3);
+      const base = new THREE.Mesh(baseGeometry, this.columnMaterial.clone());
+      base.position.set(anchor.x, 0.32, anchor.z);
+      base.castShadow = true;
+      base.receiveShadow = true;
+      this.root.add(base);
+
+      const capitalGeometry = new THREE.BoxGeometry(1.28, 0.42, 1.18, 2, 1, 2);
+      this._warpBoxGeometry(capitalGeometry, 0.05, pillarSeed + 7);
+      const capital = new THREE.Mesh(capitalGeometry, this.wallTrimMaterial.clone());
+      capital.position.set(anchor.x, this.ceilingY - 0.22, anchor.z);
+      capital.castShadow = true;
+      capital.receiveShadow = true;
+      this.root.add(capital);
+
+      const corbelGeometry = new THREE.BoxGeometry(0.9, 0.32, 0.8, 2, 1, 2);
+      this._warpBoxGeometry(corbelGeometry, 0.04, pillarSeed + 11);
+      const corbel = new THREE.Mesh(corbelGeometry, this.wallTrimMaterial.clone());
+      corbel.position.set(anchor.x, this.ceilingY - 0.72, anchor.z);
+      corbel.castShadow = true;
+      corbel.receiveShadow = true;
+      this.root.add(corbel);
+
+      if (this._noise(anchor.x, anchor.z, 41) > 0.42) {
         const moss = new THREE.Mesh(
-          new THREE.PlaneGeometry(0.56, 1.48),
+          new THREE.PlaneGeometry(0.7, 1.72),
           this.mossMaterial.clone()
         );
-        moss.position.set(anchor.x, 1.28 + this._noise(anchor.x, anchor.z, 43) * 1.1, anchor.z + 0.36);
+        moss.position.set(
+          anchor.x + (this._noise(anchor.x, anchor.z, 45) - 0.5) * 0.12,
+          1.28 + this._noise(anchor.x, anchor.z, 43) * 1.4,
+          anchor.z + 0.4
+        );
         moss.rotation.y = this._noise(anchor.x, anchor.z, 47) * 0.35;
+        moss.rotation.z = (this._noise(anchor.x, anchor.z, 49) - 0.5) * 0.3;
         this.root.add(moss);
+      }
+
+      if (this._noise(anchor.x, anchor.z, 51) > 0.6) {
+        const chunkGeometry = new THREE.BoxGeometry(0.42, 0.26, 0.38, 2, 1, 2);
+        this._warpBoxGeometry(chunkGeometry, 0.06, pillarSeed + 19);
+        const chunk = new THREE.Mesh(chunkGeometry, this.wallMaterial.clone());
+        chunk.position.set(
+          anchor.x + (this._noise(anchor.x, anchor.z, 53) - 0.5) * 0.7,
+          0.14,
+          anchor.z + (this._noise(anchor.x, anchor.z, 55) - 0.5) * 0.6
+        );
+        chunk.rotation.y = this._noise(anchor.x, anchor.z, 57) * Math.PI * 2;
+        chunk.rotation.z = (this._noise(anchor.x, anchor.z, 59) - 0.5) * 0.5;
+        chunk.castShadow = true;
+        chunk.receiveShadow = true;
+        this.root.add(chunk);
       }
     });
   }
@@ -1521,15 +1995,22 @@ class TowerRenderer {
       torch.rotation.y = anchor.rot;
       this.root.add(torch);
 
-      const light = new THREE.PointLight(0xe5933a, 0.9, 14, 1.9);
+      const light = new THREE.PointLight(0xf2a14a, 1.6, 22, 1.7);
       light.position.set(anchor.x, anchor.y + 0.36, anchor.z);
       this.root.add(light);
-      this.wallTorches.push({ light, flame, seed: index * 1.37 });
+      const halo = new THREE.Mesh(
+        new THREE.SphereGeometry(0.22, 12, 10),
+        new THREE.MeshBasicMaterial({ color: 0xffb86a, transparent: true, opacity: 0.22, depthWrite: false })
+      );
+      halo.position.copy(flame.position);
+      halo.scale.set(1.8, 2.2, 1.8);
+      torch.add(halo);
+      this.wallTorches.push({ light, flame, halo, seed: index * 1.37 });
     });
   }
 
   _buildMoteField() {
-    const count = Math.max(36, this.floorData.activeTiles.length * 4);
+    const count = Math.max(72, this.floorData.activeTiles.length * 7);
     const config = this.floorData.config;
     const width = config.width * this.cellSize;
     const depth = config.height * this.cellSize;
@@ -1545,11 +2026,12 @@ class TowerRenderer {
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     const material = new THREE.PointsMaterial({
-      color: 0x68705f,
-      size: 0.12,
+      color: 0xb29772,
+      size: 0.08,
       transparent: true,
-      opacity: 0.16,
-      depthWrite: false
+      opacity: 0.28,
+      depthWrite: false,
+      sizeAttenuation: true
     });
     this.moteField = new THREE.Points(geometry, material);
     this.root.add(this.moteField);
@@ -1709,9 +2191,19 @@ class TowerRenderer {
     }
 
     this.wallTorches.forEach((torch) => {
-      const flicker = 0.82 + Math.sin(this.clock.elapsedTime * 5.2 + torch.seed) * 0.12;
-      torch.light.intensity = flicker;
-      torch.flame.scale.y = 1.45 + Math.sin(this.clock.elapsedTime * 7 + torch.seed * 1.7) * 0.18;
+      const slow = Math.sin(this.clock.elapsedTime * 5.2 + torch.seed);
+      const fast = Math.sin(this.clock.elapsedTime * 11.4 + torch.seed * 1.9);
+      torch.light.intensity = 1.45 + slow * 0.22 + fast * 0.1;
+      const hue = 0.075 + slow * 0.008;
+      torch.light.color.setHSL(hue, 0.78, 0.58);
+      torch.flame.scale.y = 1.5 + slow * 0.22 + fast * 0.06;
+      torch.flame.scale.x = 0.78 + fast * 0.05;
+      torch.flame.scale.z = 0.78 + fast * 0.05;
+      if (torch.halo) {
+        const haloPulse = 0.85 + slow * 0.12 + fast * 0.06;
+        torch.halo.scale.setScalar(1.9 * haloPulse);
+        torch.halo.material.opacity = 0.18 + slow * 0.05;
+      }
     });
 
     this._updateQuestionHover();
@@ -1801,23 +2293,23 @@ class TowerRenderer {
     });
 
     const monsterWorld = this.cellToWorld(monster.x, monster.y);
-    let targetY = monster.state === 'stunned' ? 0.84 : 0.9;
+    let targetY = monster.state === 'stunned' ? 0.72 : 0.78;
     if (monster.state === 'ceiling') {
       const attachedBox = this.boxNodes[tileKey(monster.x, monster.y)];
       targetY = attachedBox
-        ? attachedBox.group.position.y - attachedBox.boxHeight * 0.5 + 0.28
-        : this.ceilingY - 1.5;
+        ? attachedBox.group.position.y - attachedBox.boxHeight * 0.5 - 0.22
+        : this.ceilingY - 1.42;
     }
     this.monsterTarget.set(monsterWorld.x, targetY, monsterWorld.z);
-    this.monsterGroup.position.lerp(this.monsterTarget, 0.18);
+    this.monsterGroup.position.lerp(this.monsterTarget, 0.2);
     this.monsterGroup.rotation.x = monster.state === 'ceiling' ? Math.PI : 0;
-    this.monsterGroup.rotation.z = monster.state === 'ceiling' ? Math.sin(this.clock.elapsedTime * 2.4) * 0.06 : 0;
+    this.monsterGroup.rotation.z = monster.state === 'ceiling' ? Math.sin(this.clock.elapsedTime * 2.4) * 0.04 : 0;
     this.monsterGroup.scale.setScalar(
       monster.state === 'stunned'
-        ? 0.68
+        ? 0.5
         : monster.state === 'ceiling'
-          ? 0.82
-          : 0.76
+          ? 0.64
+          : 0.58
     );
 
     const pulse = 0.08 + Math.sin(this.clock.elapsedTime * 4.8) * 0.03;
@@ -1862,13 +2354,21 @@ class TowerRenderer {
 
     const world = this.cellToWorld(player.x, player.y);
     const panelYaw = typeof question.panelYaw === 'number' ? question.panelYaw : 0;
-    const forwardOffset = this.cellSize * 0.88;
-    const hoverLift = Math.sin(this.clock.elapsedTime * 4.2) * 0.02;
+    const forwardOffset = this.cellSize * 0.42;
+    const hoverLift = Math.sin(this.clock.elapsedTime * 4.2) * 0.004;
+    const halfW = this.floorData.config.width * this.cellSize * 0.5;
+    const halfH = this.floorData.config.height * this.cellSize * 0.5;
+    const panelWidth = this.questionPanelGroup.userData.panelWidth || this.cellSize * 0.9;
+    const panelHeight = this.questionPanelGroup.userData.panelHeight || this.cellSize * 0.7;
+    const clampPadX = Math.max(this.cellSize * 0.48, panelWidth * 0.5 + 0.2);
+    const clampPadZ = Math.max(this.cellSize * 0.48, panelHeight * 0.5 + 0.2);
+    const rawX = world.x - Math.sin(panelYaw) * forwardOffset;
+    const rawZ = world.z - Math.cos(panelYaw) * forwardOffset;
     this.questionPanelGroup.visible = true;
     this.questionPanelGroup.position.set(
-      world.x - Math.sin(panelYaw) * forwardOffset,
-      this.eyeHeight - 0.1 + hoverLift,
-      world.z - Math.cos(panelYaw) * forwardOffset
+      THREE.MathUtils.clamp(rawX, -halfW + clampPadX, halfW - clampPadX),
+      0.04 + hoverLift,
+      THREE.MathUtils.clamp(rawZ, -halfH + clampPadZ, halfH - clampPadZ)
     );
     this.questionPanelGroup.rotation.set(0, panelYaw, 0);
 
