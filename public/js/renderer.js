@@ -259,26 +259,26 @@ class TowerRenderer {
     this.torchBracketMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: ironMap, roughness: 0.28, metalness: 0.76 });
     this.torchFlameMaterial = new THREE.MeshBasicMaterial({ color: 0xffa24a });
     this.monsterMaterial = new THREE.MeshPhysicalMaterial({
-      color: 0x1b2c23,
-      emissive: 0x0b1a12,
-      roughness: 0.26,
+      color: 0x121a14,
+      emissive: 0x060f09,
+      roughness: 0.32,
       metalness: 0.02,
-      clearcoat: 0.92,
-      clearcoatRoughness: 0.12,
-      reflectivity: 0.42
+      clearcoat: 0.78,
+      clearcoatRoughness: 0.22,
+      reflectivity: 0.32
     });
     this.monsterWetMaterial = new THREE.MeshPhysicalMaterial({
-      color: 0x2e5446,
-      emissive: 0x132a20,
-      roughness: 0.06,
+      color: 0x24382b,
+      emissive: 0x0d1a13,
+      roughness: 0.14,
       metalness: 0.02,
-      clearcoat: 1,
-      clearcoatRoughness: 0.02,
-      reflectivity: 0.6
+      clearcoat: 0.96,
+      clearcoatRoughness: 0.06,
+      reflectivity: 0.52
     });
-    this.monsterBoneMaterial = new THREE.MeshStandardMaterial({ color: 0xc2b39c, emissive: 0x201711, roughness: 0.6, metalness: 0.02 });
-    this.monsterClawMaterial = new THREE.MeshStandardMaterial({ color: 0x53665e, emissive: 0x0d1612, roughness: 0.2, metalness: 0.08 });
-    this.monsterEyeMaterial = new THREE.MeshStandardMaterial({ color: 0xa7efc0, emissive: 0x56c48e, roughness: 0.12, metalness: 0.04 });
+    this.monsterBoneMaterial = new THREE.MeshStandardMaterial({ color: 0xd8c6a8, emissive: 0x2a1d10, roughness: 0.48, metalness: 0.03 });
+    this.monsterClawMaterial = new THREE.MeshStandardMaterial({ color: 0x1e241f, emissive: 0x060a07, roughness: 0.22, metalness: 0.18 });
+    this.monsterEyeMaterial = new THREE.MeshStandardMaterial({ color: 0xffd890, emissive: 0xff5a18, emissiveIntensity: 1.4, roughness: 0.18, metalness: 0.05 });
 
     this.boxMaterials = {
       normal: new THREE.MeshStandardMaterial({ color: 0xffffff, map: normalCrateMap, roughness: 0.54, metalness: 0.06 }),
@@ -1230,28 +1230,33 @@ class TowerRenderer {
 
   _createMonsterTendril(seed, material) {
     const tendril = new THREE.Group();
+    const curl = (this._noise(seed, 0, 619) - 0.5) * 0.4;
+    const flare = (this._noise(seed, 0, 623) - 0.5) * 0.3;
+    let offsetX = 0;
     let offsetY = 0;
     let offsetZ = 0;
 
     for (let index = 0; index < 3; index += 1) {
       const segment = new THREE.Mesh(
         this._warpOrganicGeometry(
-          new THREE.CylinderGeometry(0.09 - index * 0.018, 0.14 - index * 0.022, 0.56 - index * 0.08, 9),
-          0.06,
+          new THREE.CylinderGeometry(0.07 - index * 0.014, 0.1 - index * 0.016, 0.3 - index * 0.04, 9),
+          0.05,
           seed + index * 11
         ),
         material
       );
-      segment.position.set(0, offsetY - 0.24, offsetZ + 0.16);
-      segment.rotation.x = 0.42 + index * 0.24;
-      segment.rotation.z = (this._noise(seed, index, 601) - 0.5) * 0.42;
+      const bend = 0.6 + index * 0.4;
+      segment.position.set(offsetX, offsetY - 0.12, offsetZ + 0.08);
+      segment.rotation.x = bend;
+      segment.rotation.z = flare + (this._noise(seed, index, 601) - 0.5) * 0.4;
       tendril.add(segment);
-      offsetY -= 0.34;
-      offsetZ += 0.2;
+      offsetX += Math.sin(bend) * curl * 0.22;
+      offsetY -= 0.08 + index * 0.02;
+      offsetZ += 0.18;
     }
 
-    tendril.userData.baseRotationX = 0.22 + (this._noise(seed, 0, 607) - 0.5) * 0.18;
-    tendril.userData.baseRotationZ = (this._noise(seed, 0, 613) - 0.5) * 0.24;
+    tendril.userData.baseRotationX = 0.18 + (this._noise(seed, 0, 607) - 0.5) * 0.2;
+    tendril.userData.baseRotationZ = (this._noise(seed, 0, 613) - 0.5) * 0.3;
     tendril.rotation.x = tendril.userData.baseRotationX;
     tendril.rotation.z = tendril.userData.baseRotationZ;
     return tendril;
@@ -1270,6 +1275,7 @@ class TowerRenderer {
       wet: this._registerMonsterMaterial(this.monsterWetMaterial.clone(), 1.2),
       under: this._registerMonsterMaterial(this.monsterWetMaterial.clone(), 0.84),
       bone: this._registerMonsterMaterial(this.monsterBoneMaterial.clone(), 0.42),
+      claw: this._registerMonsterMaterial(this.monsterClawMaterial.clone(), 0.32),
       eyeHot: this._registerMonsterMaterial(this.monsterEyeMaterial.clone(), 1.55),
       eyeDim: this._registerMonsterMaterial(this.monsterEyeMaterial.clone(), 1.18)
     };
@@ -1277,74 +1283,99 @@ class TowerRenderer {
     materials.fleshDark.color.offsetHSL(0, -0.06, -0.08);
     materials.under.color.offsetHSL(0, -0.02, -0.12);
     materials.bone.color.offsetHSL(0.02, -0.08, 0.02);
-    materials.eyeDim.color.offsetHSL(-0.02, -0.03, -0.08);
-
-    const mantle = new THREE.Mesh(
-      this._warpOrganicGeometry(new THREE.SphereGeometry(0.76, 18, 14), 0.11, 801),
-      materials.flesh
-    );
-    mantle.position.set(0, 0.08, -0.08);
-    mantle.scale.set(1.2, 0.34, 1.08);
-
-    const body = new THREE.Mesh(
-      this._warpOrganicGeometry(new THREE.SphereGeometry(0.64, 18, 14), 0.16, 811),
-      materials.wet
-    );
-    body.position.set(0, -0.08, 0.08);
-    body.scale.set(1.04, 0.62, 1.28);
+    materials.eyeDim.color.offsetHSL(-0.04, -0.05, -0.12);
+    materials.eyeDim.emissive.offsetHSL(0, 0, -0.15);
 
     const anchorPlate = new THREE.Mesh(
-      this._warpOrganicGeometry(new THREE.CylinderGeometry(0.44, 0.58, 0.24, 18), 0.06, 819),
+      this._warpOrganicGeometry(new THREE.SphereGeometry(0.62, 20, 14), 0.09, 819),
       materials.fleshDark
     );
-    anchorPlate.position.set(0, 0.26, -0.2);
-    anchorPlate.scale.set(1.18, 0.34, 1.02);
+    anchorPlate.position.set(0, 0.28, -0.1);
+    anchorPlate.scale.set(1.34, 0.42, 1.22);
 
-    const throat = new THREE.Mesh(
-      this._warpOrganicGeometry(new THREE.CylinderGeometry(0.12, 0.24, 0.56, 12), 0.08, 829),
+    const mantle = new THREE.Mesh(
+      this._warpOrganicGeometry(new THREE.SphereGeometry(0.7, 20, 16), 0.13, 801),
+      materials.flesh
+    );
+    mantle.position.set(0, 0.02, 0);
+    mantle.scale.set(1.18, 0.78, 1.22);
+
+    const body = new THREE.Mesh(
+      this._warpOrganicGeometry(new THREE.SphereGeometry(0.56, 20, 16), 0.18, 811),
       materials.wet
     );
-    throat.position.set(0, -0.18, 0.52);
-    throat.rotation.x = -0.86;
+    body.position.set(0, -0.24, 0.14);
+    body.scale.set(0.98, 0.92, 1.14);
+
+    const head = new THREE.Mesh(
+      this._warpOrganicGeometry(new THREE.SphereGeometry(0.38, 18, 14), 0.1, 833),
+      materials.fleshDark
+    );
+    head.position.set(0, -0.32, 0.52);
+    head.scale.set(1.08, 0.78, 1.18);
+
+    const browRidge = new THREE.Mesh(
+      this._warpOrganicGeometry(new THREE.TorusGeometry(0.26, 0.08, 8, 18, Math.PI), 0.04, 855),
+      materials.bone
+    );
+    browRidge.position.set(0, -0.16, 0.58);
+    browRidge.rotation.z = Math.PI;
+    browRidge.scale.set(1.2, 0.62, 0.88);
 
     const mawPivot = new THREE.Group();
-    mawPivot.position.set(0, -0.28, 0.76);
-    mawPivot.userData.baseRotationX = 0.08;
+    mawPivot.position.set(0, -0.36, 0.72);
+    mawPivot.userData.baseRotationX = 0.12;
     mawPivot.rotation.x = mawPivot.userData.baseRotationX;
 
     const mawRing = new THREE.Mesh(
-      this._warpOrganicGeometry(new THREE.TorusGeometry(0.22, 0.07, 10, 18), 0.04, 839),
+      this._warpOrganicGeometry(new THREE.TorusGeometry(0.24, 0.09, 10, 20), 0.04, 839),
       materials.fleshDark
     );
     mawRing.rotation.x = Math.PI / 2;
-    mawRing.scale.set(1.08, 0.88, 1);
+    mawRing.scale.set(1.1, 0.92, 1);
 
     const mawInner = new THREE.Mesh(
-      this._warpOrganicGeometry(new THREE.CylinderGeometry(0.14, 0.22, 0.22, 16, 1, true), 0.03, 847),
+      this._warpOrganicGeometry(new THREE.CylinderGeometry(0.14, 0.24, 0.3, 18, 1, true), 0.03, 847),
       materials.under
     );
     mawInner.rotation.x = Math.PI / 2;
-    mawInner.position.z = 0.02;
+    mawInner.position.z = 0.04;
 
-    for (let index = 0; index < 5; index += 1) {
+    for (let index = 0; index < 9; index += 1) {
+      const angle = -Math.PI * 0.46 + (index / 8) * Math.PI * 0.92;
+      const toothHeight = 0.14 + (index % 2 === 0 ? 0.06 : 0.02);
       const tooth = new THREE.Mesh(
-        new THREE.ConeGeometry(0.028 + index * 0.004, 0.12 + index * 0.015, 5),
+        new THREE.ConeGeometry(0.03 + (index % 2 === 0 ? 0.008 : 0.004), toothHeight, 5),
         materials.bone
       );
-      const angle = -0.52 + index * 0.26;
-      tooth.position.set(Math.sin(angle) * 0.17, -0.04 + index * 0.01, 0.12 + Math.cos(angle) * 0.1);
-      tooth.rotation.x = Math.PI * 0.62;
-      tooth.rotation.z = angle * 0.22;
+      tooth.position.set(Math.sin(angle) * 0.22, -0.02 + Math.cos(angle) * 0.04, 0.14 + Math.cos(angle) * 0.08);
+      tooth.rotation.x = Math.PI * 0.62 + (index % 2 === 0 ? 0 : -0.1);
+      tooth.rotation.z = angle * 0.24;
+      mawPivot.add(tooth);
+    }
+
+    for (let index = 0; index < 5; index += 1) {
+      const angle = Math.PI * 0.54 + (index / 4) * Math.PI * 0.92;
+      const tooth = new THREE.Mesh(
+        new THREE.ConeGeometry(0.026, 0.1 + (index === 2 ? 0.05 : 0), 5),
+        materials.bone
+      );
+      tooth.position.set(Math.sin(angle) * 0.2, -0.02 + Math.cos(angle) * 0.04, 0.14 + Math.cos(angle) * 0.06);
+      tooth.rotation.x = Math.PI * 0.38;
+      tooth.rotation.z = angle * 0.26;
       mawPivot.add(tooth);
     }
 
     [
-      { x: -0.22, y: 0.02, z: 0.52, scale: 1.02, material: materials.eyeHot },
-      { x: -0.08, y: 0.1, z: 0.62, scale: 0.82, material: materials.eyeDim },
-      { x: 0.1, y: 0.08, z: 0.66, scale: 0.72, material: materials.eyeHot },
-      { x: 0.24, y: -0.02, z: 0.56, scale: 0.62, material: materials.eyeDim }
+      { x: -0.26, y: -0.14, z: 0.44, scale: 1.12, material: materials.eyeHot },
+      { x: -0.12, y: -0.06, z: 0.62, scale: 0.92, material: materials.eyeHot },
+      { x: 0.14, y: -0.08, z: 0.62, scale: 0.84, material: materials.eyeHot },
+      { x: 0.28, y: -0.16, z: 0.42, scale: 0.96, material: materials.eyeDim },
+      { x: -0.18, y: 0.04, z: 0.52, scale: 0.58, material: materials.eyeDim },
+      { x: 0.06, y: 0.06, z: 0.58, scale: 0.52, material: materials.eyeDim },
+      { x: 0.2, y: 0.02, z: 0.5, scale: 0.5, material: materials.eyeDim }
     ].forEach((eyeConfig) => {
-      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 10), eyeConfig.material);
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.065, 12, 10), eyeConfig.material);
       eye.position.set(eyeConfig.x, eyeConfig.y, eyeConfig.z);
       eye.scale.setScalar(eyeConfig.scale);
       eye.userData.baseScale = eyeConfig.scale;
@@ -1352,34 +1383,77 @@ class TowerRenderer {
       this.monsterGroup.add(eye);
     });
 
+    const ribSpines = new THREE.Group();
+    for (let index = 0; index < 7; index += 1) {
+      const side = index - 3;
+      const lateral = side * 0.13;
+      const spineHeight = 0.18 + (3 - Math.abs(side)) * 0.06;
+      const spine = new THREE.Mesh(
+        this._warpOrganicGeometry(new THREE.ConeGeometry(0.05, spineHeight, 6), 0.03, 905 + index * 13),
+        materials.bone
+      );
+      spine.position.set(lateral, 0.14 + Math.abs(side) * 0.02, -0.22 - Math.abs(side) * 0.04);
+      spine.rotation.x = -0.34 + Math.abs(side) * 0.08;
+      spine.rotation.z = side * 0.22;
+      ribSpines.add(spine);
+    }
+    this.monsterGroup.add(ribSpines);
+
+    const hookGroup = new THREE.Group();
     for (let index = 0; index < 4; index += 1) {
+      const side = index < 2 ? -1 : 1;
+      const row = index % 2;
+      const hook = new THREE.Group();
+
+      const upper = new THREE.Mesh(
+        this._warpOrganicGeometry(new THREE.CylinderGeometry(0.08, 0.13, 0.38, 10), 0.05, 951 + index * 17),
+        materials.wet
+      );
+      upper.position.set(0, -0.18, 0);
+      upper.rotation.z = side * 0.82;
+      upper.rotation.x = 0.42;
+
+      const joint = new THREE.Mesh(
+        this._warpOrganicGeometry(new THREE.SphereGeometry(0.1, 10, 10), 0.04, 963 + index * 17),
+        materials.flesh
+      );
+      joint.position.set(side * 0.26, -0.34, 0.16);
+
+      const lower = new THREE.Mesh(
+        this._warpOrganicGeometry(new THREE.CylinderGeometry(0.05, 0.1, 0.32, 10), 0.06, 975 + index * 17),
+        materials.fleshDark
+      );
+      lower.position.set(side * 0.32, -0.48, 0.32);
+      lower.rotation.x = -1.18;
+      lower.rotation.z = side * 0.22;
+
+      const claw = new THREE.Mesh(
+        new THREE.ConeGeometry(0.05, 0.22, 6),
+        materials.claw
+      );
+      claw.position.set(side * 0.36, -0.52, 0.5);
+      claw.rotation.x = -2.4;
+      claw.rotation.z = side * 0.38;
+
+      hook.add(upper, joint, lower, claw);
+      hook.position.set(side * 0.36, 0.02 - row * 0.1, -0.06 + row * 0.24);
+      hook.scale.setScalar(0.88 - row * 0.14);
+      hookGroup.add(hook);
+    }
+    this.monsterGroup.add(hookGroup);
+
+    for (let index = 0; index < 3; index += 1) {
       const tendril = this._createMonsterTendril(871 + index * 17, materials.wet);
-      tendril.scale.setScalar(0.52 + index * 0.05);
-      tendril.position.set(-0.28 + index * 0.18, -0.1 + index * 0.04, 0.18 + index * 0.12);
+      tendril.scale.setScalar(0.42 + index * 0.04);
+      const angle = -0.9 + index * 0.9;
+      tendril.position.set(Math.sin(angle) * 0.3, -0.06, -0.22 + Math.cos(angle) * 0.12);
       this.monsterTendrilNodes.push(tendril);
       this.monsterGroup.add(tendril);
     }
 
-    for (let index = 0; index < 3; index += 1) {
-      const droplet = new THREE.Mesh(
-        this._warpOrganicGeometry(new THREE.ConeGeometry(0.08 - index * 0.012, 0.34 + index * 0.06, 8), 0.04, 903 + index * 11),
-        materials.wet
-      );
-      droplet.position.set(-0.16 + index * 0.16, -0.3 - index * 0.04, -0.28 - index * 0.12);
-      droplet.rotation.x = Math.PI;
-      this.monsterGroup.add(droplet);
-    }
-
-    const tail = new THREE.Mesh(
-      this._warpOrganicGeometry(new THREE.CylinderGeometry(0.08, 0.16, 0.72, 12), 0.06, 941),
-      materials.wet
-    );
-    tail.position.set(0, -0.08, -0.66);
-    tail.rotation.x = 1.04;
-
     mawPivot.add(mawRing, mawInner);
     this.monsterJawPivot = mawPivot;
-    this.monsterGroup.add(anchorPlate, mantle, body, throat, mawPivot, tail);
+    this.monsterGroup.add(anchorPlate, mantle, body, head, browRidge, mawPivot);
     this.monsterGroup.traverse((child) => {
       if (child.isMesh) {
         child.castShadow = true;
