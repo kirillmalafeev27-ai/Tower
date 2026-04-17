@@ -1,4 +1,4 @@
-﻿const SCREEN_IDS = ['menu-screen', 'game-screen', 'win-screen', 'lose-screen', 'leaderboard-screen'];
+const SCREEN_IDS = ['menu-screen', 'game-screen', 'win-screen', 'lose-screen', 'leaderboard-screen'];
 const LOOK_FREEZE_MAX_MS = 10000;
 const LOOK_FREEZE_COOLDOWN_MS = 10000;
 const LOOK_UP_PITCH_THRESHOLD = 0.18;
@@ -16,20 +16,20 @@ const BOX_BREAK_ANIM_MS = 900;
 const BOX_RANDOM_FALL_START_MS = 5000;
 
 const BOX_TYPES = {
-  normal: { label: 'РћР±С‹С‡РЅС‹Р№', stabilityRange: [45, 60], blocks: true },
-  light: { label: 'Р›С‘РіРєРёР№', stabilityRange: [20, 30], blocks: false },
-  anchor: { label: 'РЇРєРѕСЂСЊ', stabilityRange: [90, 120], blocks: true },
-  heavy: { label: 'РўСЏР¶С‘Р»С‹Р№', stabilityRange: [90, 120], blocks: true, wide: true },
-  rotten: { label: 'Р“РЅРёР»РѕР№', stabilityRange: [34, 48], blocks: true, faultPerSecond: 0.085 },
-  safe: { label: 'РЎРµР№С„', stabilityRange: [95, 130], blocks: true, reward: true }
+  normal: { label: 'Обычный', stabilityRange: [45, 60], blocks: true },
+  light: { label: 'Лёгкий', stabilityRange: [20, 30], blocks: false },
+  anchor: { label: 'Якорь', stabilityRange: [90, 120], blocks: true },
+  heavy: { label: 'Тяжёлый', stabilityRange: [90, 120], blocks: true, wide: true },
+  rotten: { label: 'Гнилой', stabilityRange: [34, 48], blocks: true, faultPerSecond: 0.085 },
+  safe: { label: 'Сейф', stabilityRange: [95, 130], blocks: true, reward: true }
 };
 
 const FLOOR_CONFIGS = [
-  { id: 1, name: 'Der Lagerraum', subtitle: 'РЎРєР»Р°Рґ', width: 4, height: 6, shape: 'rect', anchors: 1, lights: 0, rotten: 0, heavy: 0, safe: 0, ceilingMoveMs: 4000, floorMoveMs: 6000, jumpDistance: 0, jumpCooldownMs: 0, quakes: false, autoJumpIfIdleMs: 0, returnJumpToPlayer: false, midQuakeAfterMs: 0 },
-  { id: 2, name: 'Das Archiv', subtitle: 'РђСЂС…РёРІ', width: 5, height: 6, shape: 'rect', anchors: 1, lights: 4, rotten: 4, heavy: 0, safe: 0, ceilingMoveMs: 3500, floorMoveMs: 5800, jumpDistance: 0, jumpCooldownMs: 0, quakes: true, autoJumpIfIdleMs: 0, returnJumpToPlayer: false, midQuakeAfterMs: 0 },
-  { id: 3, name: 'Die Fabrik', subtitle: 'Р¦РµС…', width: 5, height: 8, shape: 'rect', anchors: 4, lights: 4, rotten: 4, heavy: 4, safe: 0, ceilingMoveMs: 3000, floorMoveMs: 5600, jumpDistance: 3, jumpCooldownMs: 4000, quakes: true, autoJumpIfIdleMs: 0, returnJumpToPlayer: false, midQuakeAfterMs: 0 },
-  { id: 4, name: 'Die Bibliothek', subtitle: 'Р‘РёР±Р»РёРѕС‚РµРєР°', width: 5, height: 8, shape: 'library-l', anchors: 4, lights: 4, rotten: 4, heavy: 4, safe: 3, ceilingMoveMs: 3000, floorMoveMs: 5400, jumpDistance: 3, jumpCooldownMs: 4000, quakes: true, autoJumpIfIdleMs: 0, returnJumpToPlayer: true, midQuakeAfterMs: 0 },
-  { id: 5, name: 'Der Turm', subtitle: 'Р¤РёРЅР°Р»', width: 6, height: 10, shape: 'rect', anchors: 6, lights: 6, rotten: 6, heavy: 6, safe: 4, ceilingMoveMs: 2500, floorMoveMs: 5200, jumpDistance: 3, jumpCooldownMs: 3500, quakes: true, autoJumpIfIdleMs: 5000, returnJumpToPlayer: true, midQuakeAfterMs: 24000 }
+  { id: 1, name: 'Der Lagerraum', subtitle: 'Склад', width: 4, height: 6, shape: 'rect', anchors: 1, lights: 0, rotten: 0, heavy: 0, safe: 0, ceilingMoveMs: 4000, floorMoveMs: 6000, jumpDistance: 0, jumpCooldownMs: 0, quakes: false, autoJumpIfIdleMs: 0, returnJumpToPlayer: false, midQuakeAfterMs: 0 },
+  { id: 2, name: 'Das Archiv', subtitle: 'Архив', width: 5, height: 6, shape: 'rect', anchors: 1, lights: 4, rotten: 4, heavy: 0, safe: 0, ceilingMoveMs: 3500, floorMoveMs: 5800, jumpDistance: 0, jumpCooldownMs: 0, quakes: true, autoJumpIfIdleMs: 0, returnJumpToPlayer: false, midQuakeAfterMs: 0 },
+  { id: 3, name: 'Die Fabrik', subtitle: 'Цех', width: 5, height: 8, shape: 'rect', anchors: 4, lights: 4, rotten: 4, heavy: 4, safe: 0, ceilingMoveMs: 3000, floorMoveMs: 5600, jumpDistance: 3, jumpCooldownMs: 4000, quakes: true, autoJumpIfIdleMs: 0, returnJumpToPlayer: false, midQuakeAfterMs: 0 },
+  { id: 4, name: 'Die Bibliothek', subtitle: 'Библиотека', width: 5, height: 8, shape: 'library-l', anchors: 4, lights: 4, rotten: 4, heavy: 4, safe: 3, ceilingMoveMs: 3000, floorMoveMs: 5400, jumpDistance: 3, jumpCooldownMs: 4000, quakes: true, autoJumpIfIdleMs: 0, returnJumpToPlayer: true, midQuakeAfterMs: 0 },
+  { id: 5, name: 'Der Turm', subtitle: 'Финал', width: 6, height: 10, shape: 'rect', anchors: 6, lights: 6, rotten: 6, heavy: 6, safe: 4, ceilingMoveMs: 2500, floorMoveMs: 5200, jumpDistance: 3, jumpCooldownMs: 3500, quakes: true, autoJumpIfIdleMs: 5000, returnJumpToPlayer: true, midQuakeAfterMs: 24000 }
 ];
 
 function clamp(value, min, max) {
@@ -149,7 +149,7 @@ class Game {
     this.leaderboard = new Leaderboard();
 
     this.playerName = 'Spieler';
-    this.runName = 'Р‘РµР·С‹РјСЏРЅРЅС‹Р№ СЃРїСѓСЃРє';
+    this.runName = 'Безымянный спуск';
     this.langLevel = DEFAULT_CEFR_LEVEL;
     this.lexicalTopic = null;
     this.slotConfigs = [];
@@ -328,7 +328,7 @@ class Game {
     this._applySettings(settings);
     this._prepareRunState(preserveRunProgress);
     this._setActiveScreen('game-screen');
-    this._showLoading('Р‘Р°С€РЅСЏ СЃС‚СЂРѕРёС‚ СЃР»РµРґСѓСЋС‰РёР№ СЌС‚Р°Р¶...');
+    this._showLoading('Башня строит следующий этаж...');
     this._hidePanels();
     this.ui.transitionBanner.classList.add('hidden');
     this.ui.deathOverlay.classList.remove('active');
@@ -365,7 +365,7 @@ class Game {
     this.state = 'topic_select';
     this._showTopicPanel();
     this._hideLoading();
-    this._showMessage('Р‘Р°С€РЅСЏ СЃР»СѓС€Р°РµС‚. Р§С‚РѕР±С‹ РёРґС‚Рё, РЅСѓР¶РЅРѕ РѕС‚РІРµС‡Р°С‚СЊ С‚РѕС‡РЅРѕ.', 2400);
+    this._showMessage('Башня слушает. Чтобы идти, нужно отвечать точно.', 2400);
     this._markUiDirty(true);
     this._syncRenderer(performance.now());
 
@@ -376,7 +376,7 @@ class Game {
 
   _applySettings(settings) {
     this.playerName = settings.playerName || 'Spieler';
-    this.runName = settings.runName || 'Р‘РµР·С‹РјСЏРЅРЅС‹Р№ СЃРїСѓСЃРє';
+    this.runName = settings.runName || 'Безымянный спуск';
     this.langLevel = settings.langLevel || DEFAULT_CEFR_LEVEL;
     this.lexicalTopic = settings.lexicalTopic || null;
     this.slotConfigs = (settings.slotConfigs || []).map((config) => ({
@@ -620,7 +620,7 @@ class Game {
       this.quake.phase = 'active';
       this.audio.playQuakeImpact();
       this.renderer.shake(0.18, 850);
-      this._showMessage('Р‘Р°С€РЅСЋ С‚СЂСЏС…РЅСѓР»Рѕ. РџРѕС‚РѕР»РѕРє СЃС‚Р°СЂРµРµС‚ Р±С‹СЃС‚СЂРµРµ.', 1800);
+      this._showMessage('Башню тряхнуло. Потолок стареет быстрее.', 1800);
       this._markUiDirty();
       return;
     }
@@ -639,7 +639,7 @@ class Game {
 
     if (now - this.currentFloorStartedAt >= this.floorConfig.midQuakeAfterMs) {
       this.floorData.plannedQuakeTriggered = true;
-      this._scheduleQuake('Р‘Р°С€РЅСЏ СЃР°РјР° РїРѕС€Р»Р° РІРѕР»РЅРѕР№.');
+      this._scheduleQuake('Башня сама пошла волной.');
     }
   }
 
@@ -693,7 +693,7 @@ class Game {
         this._clearBoxFallWarning(box);
         this.floorData.pendingFallBoxKey = null;
         this.floorData.nextRandomFallAt = now + this._getRandomFallDelayMs();
-        this._showMessage('РЇС‰РёРє РІС‹РґРµСЂР¶Р°Р» С‚СЂРµСЃРє Рё РЅРµ СЃРѕСЂРІР°Р»СЃСЏ.', 1100);
+        this._showMessage('Ящик выдержал треск и не сорвался.', 1100);
         this._markUiDirty();
         return;
       }
@@ -1152,7 +1152,7 @@ class Game {
     this.quake.activeUntil = now + QUAKE_WARNING_MS + QUAKE_ACTIVE_MS;
     this.quake.reason = reason;
     this.audio.playQuakeWarning();
-    this._showMessage(`РўРѕР»С‡РѕРє РЅР°Р·СЂРµРІР°РµС‚: ${reason}`, 2000);
+    this._showMessage(`Толчок назревает: ${reason}`, 2000);
     this._markUiDirty();
   }
 
@@ -1191,11 +1191,11 @@ class Game {
 
     if (box.type === 'anchor') {
       this._triggerAnchorCascade(box);
-      this._scheduleQuake('СѓРїР°Р» СЏРєРѕСЂРЅС‹Р№ СЏС‰РёРє');
+      this._scheduleQuake('упал якорный ящик');
     }
 
     if (cause === 'provoked') {
-      this._scheduleQuake('РІС‹ СЃР°РјРё СЃРґС‘СЂРЅСѓР»Рё СЏС‰РёРє СЃ РїРѕС‚РѕР»РєР°');
+      this._scheduleQuake('вы сами сдёрнули ящик с потолка');
     }
 
     const hitPlayer = affectedTiles.some((tile) => tile.x === this.player.x && tile.y === this.player.y);
@@ -1217,7 +1217,7 @@ class Game {
     this.audio.playMonsterDrop();
 
     if (triggeredByPlayer) {
-      this._showMessage('РњРѕРЅСЃС‚СЂ СЂСѓС…РЅСѓР» РЅР° РїРѕР» Рё РЅР° РјРёРі РѕРіР»СѓС€С‘РЅ.', 1500);
+      this._showMessage('Монстр рухнул на пол и на миг оглушён.', 1500);
     }
   }
 
@@ -1248,7 +1248,7 @@ class Game {
     Object.keys(this.slotCooldowns).forEach((slotId) => {
       this.slotCooldowns[slotId] = Math.max(performance.now(), this.slotCooldowns[slotId] - 6000);
     });
-    this._showMessage('РЎРµР№С„ С‚СЂРµСЃРЅСѓР»: +4 СЃРµРєСѓРЅРґС‹ РІР·РіР»СЏРґР° Рё РєСѓР»РґР°СѓРЅС‹ СЃС‚Р°Р»Рё РєРѕСЂРѕС‡Рµ.', 1900);
+    this._showMessage('Сейф треснул: +4 секунды взгляда и кулдауны стали короче.', 1900);
   }
 
   _getDebrisTilesForBox(box) {
@@ -1349,13 +1349,13 @@ class Game {
 
     const cooldownRemaining = this._getSlotCooldownRemaining(slotId, performance.now());
     if (cooldownRemaining > 0) {
-      this._showMessage(`РЎР»РѕС‚ РµС‰С‘ РїРµСЂРµР·Р°СЂСЏР¶Р°РµС‚СЃСЏ: ${Math.ceil(cooldownRemaining / 1000)} c.`, 1300);
+      this._showMessage(`Слот ещё перезаряжается: ${Math.ceil(cooldownRemaining / 1000)} c.`, 1300);
       return;
     }
 
     const question = this.questionManager.getQuestion(slotId);
     if (!question) {
-      this._showMessage('Р’РѕРїСЂРѕСЃ РЅРµ СѓРґР°Р»РѕСЃСЊ РїРѕР»СѓС‡РёС‚СЊ.', 1200);
+      this._showMessage('Вопрос не удалось получить.', 1200);
       return;
     }
 
@@ -1400,7 +1400,7 @@ class Game {
     }
 
     const correctAnswer = question.options.options[question.options.correctIndex];
-    this._showFeedback(false, `РќРµРІРµСЂРЅРѕ. РџСЂР°РІРёР»СЊРЅС‹Р№ РѕС‚РІРµС‚: ${correctAnswer}`);
+    this._showFeedback(false, `Неверно. Правильный ответ: ${correctAnswer}`);
     this._clearTransitionTimeout();
     this.transitionTimeoutId = window.setTimeout(() => {
       if (this.state === 'lost' || this.state === 'won') {
@@ -1449,7 +1449,7 @@ class Game {
     if (!pickedBox) {
       this._showMessage('\u041d\u0430\u0432\u0435\u0434\u0438\u0442\u0435 \u043a\u0443\u0440\u0441\u043e\u0440 \u043d\u0430 \u044f\u0449\u0438\u043a \u043f\u043e\u0434 \u043f\u043e\u0442\u043e\u043b\u043a\u043e\u043c \u0438 \u043a\u043b\u0438\u043a\u043d\u0438\u0442\u0435.', 1000);
       return;
-      this._showMessage('РќР°РІРµРґРёС‚Рµ С†РµРЅС‚СЂ РІР·РіР»СЏРґР° РЅР° СЏС‰РёРє РїРѕРґ РїРѕС‚РѕР»РєРѕРј.', 1000);
+      this._showMessage('Наведите центр взгляда на ящик под потолком.', 1000);
       return;
     }
 
@@ -1471,7 +1471,7 @@ class Game {
         this._showActionPanel();
         this._markUiDirty();
       }, 620);
-      return 'Р’РµСЂРЅРѕ. РЈ РІР°СЃ РµСЃС‚СЊ 2 РґРµР№СЃС‚РІРёСЏ РЅР° РїРѕР»Сѓ.';
+      return 'Верно. У вас есть 2 действия на полу.';
     }
 
     if (slot.bonus === 'vision') {
@@ -1481,10 +1481,10 @@ class Game {
       this.targetSourceSlotId = slot.id;
       this._showTargetPanel('\u041d\u0430\u0432\u0435\u0434\u0438\u0442\u0435 \u043a\u0443\u0440\u0441\u043e\u0440 \u043d\u0430 \u044f\u0449\u0438\u043a \u043f\u043e\u0434 \u043f\u043e\u0442\u043e\u043b\u043a\u043e\u043c \u0438 \u043a\u043b\u0438\u043a\u043d\u0438\u0442\u0435. \u041f\u043e\u0434\u0441\u0432\u0435\u0442\u0438\u0442\u0441\u044f \u0437\u043e\u043d\u0430 3x3 \u0432\u043e\u043a\u0440\u0443\u0433 \u043d\u0435\u0433\u043e \u043d\u0430 10 \u0441\u0435\u043a\u0443\u043d\u0434.', false);
       return '\u0412\u0435\u0440\u043d\u043e. \u041d\u0430\u0432\u0435\u0434\u0438\u0442\u0435 \u043a\u0443\u0440\u0441\u043e\u0440 \u043d\u0430 \u043d\u0443\u0436\u043d\u044b\u0439 \u044f\u0449\u0438\u043a.';
-      this._showTargetPanel('РќР°РІРµРґРёС‚Рµ РІР·РіР»СЏРґ РЅР° СЏС‰РёРє РЅР° РїРѕС‚РѕР»РєРµ Рё РїРѕРґС‚РІРµСЂРґРёС‚Рµ РєР»РёРєРѕРј. РџРѕРґСЃРІРµС‚РёС‚СЃСЏ Р·РѕРЅР° 3x3 РІРѕРєСЂСѓРі РЅРµРіРѕ РЅР° 10 СЃРµРєСѓРЅРґ.', false);
-      return 'Р’РµСЂРЅРѕ. РќР°РІРµРґРёС‚Рµ РІР·РіР»СЏРґ РЅР° РЅСѓР¶РЅС‹Р№ СЏС‰РёРє.';
-      this._showTargetPanel('Р’С‹Р±РµСЂРёС‚Рµ С†РµРЅС‚СЂ РѕР±Р»Р°СЃС‚Рё 3x3. РўР°Рј РІС‹ СѓРІРёРґРёС‚Рµ С†РІРµС‚РѕРІСѓСЋ СѓСЃС‚РѕР№С‡РёРІРѕСЃС‚СЊ СЏС‰РёРєРѕРІ РЅР° 10 СЃРµРєСѓРЅРґ.');
-      return 'Р’РµСЂРЅРѕ. Р’С‹Р±РµСЂРёС‚Рµ Р·РѕРЅСѓ РґР»СЏ СЂР°СЃС€РёСЂРµРЅРЅРѕРіРѕ Р·СЂРµРЅРёСЏ.';
+      this._showTargetPanel('Наведите взгляд на ящик на потолке и подтвердите кликом. Подсветится зона 3x3 вокруг него на 10 секунд.', false);
+      return 'Верно. Наведите взгляд на нужный ящик.';
+      this._showTargetPanel('Выберите центр области 3x3. Там вы увидите цветовую устойчивость ящиков на 10 секунд.');
+      return 'Верно. Выберите зону для расширенного зрения.';
     }
 
     if (slot.bonus === 'fortify') {
@@ -1494,10 +1494,10 @@ class Game {
       this.targetSourceSlotId = slot.id;
       this._showTargetPanel('\u041d\u0430\u0432\u0435\u0434\u0438\u0442\u0435 \u043a\u0443\u0440\u0441\u043e\u0440 \u043d\u0430 \u044f\u0449\u0438\u043a \u043f\u043e\u0434 \u043f\u043e\u0442\u043e\u043b\u043a\u043e\u043c \u0438 \u043a\u043b\u0438\u043a\u043d\u0438\u0442\u0435. \u0414\u043e \u0448\u0435\u0441\u0442\u0438 \u044f\u0449\u0438\u043a\u043e\u0432 \u0432\u043e\u043a\u0440\u0443\u0433 \u043d\u0435\u0433\u043e \u0431\u0443\u0434\u0443\u0442 \u0443\u043a\u0440\u0435\u043f\u043b\u0435\u043d\u044b \u043d\u0430 30 \u0441\u0435\u043a\u0443\u043d\u0434.', false);
       return '\u0412\u0435\u0440\u043d\u043e. \u041d\u0430\u0432\u0435\u0434\u0438\u0442\u0435 \u043a\u0443\u0440\u0441\u043e\u0440 \u043d\u0430 \u0437\u043e\u043d\u0443, \u043a\u043e\u0442\u043e\u0440\u0443\u044e \u0445\u043e\u0442\u0438\u0442\u0435 \u0443\u043a\u0440\u0435\u043f\u0438\u0442\u044c.';
-      this._showTargetPanel('РќР°РІРµРґРёС‚Рµ РІР·РіР»СЏРґ РЅР° СЏС‰РёРє РЅР° РїРѕС‚РѕР»РєРµ Рё РїРѕРґС‚РІРµСЂРґРёС‚Рµ РєР»РёРєРѕРј. Р”Рѕ С€РµСЃС‚Рё СЏС‰РёРєРѕРІ РІРѕРєСЂСѓРі РЅРµРіРѕ Р±СѓРґСѓС‚ СѓРєСЂРµРїР»РµРЅС‹ РЅР° 30 СЃРµРєСѓРЅРґ.', false);
-      return 'Р’РµСЂРЅРѕ. РќР°РІРµРґРёС‚Рµ РІР·РіР»СЏРґ РЅР° Р·РѕРЅСѓ, РєРѕС‚РѕСЂСѓСЋ С…РѕС‚РёС‚Рµ СѓРєСЂРµРїРёС‚СЊ.';
-      this._showTargetPanel('Р’С‹Р±РµСЂРёС‚Рµ РѕР±Р»Р°СЃС‚СЊ 3x3. Р”Рѕ С€РµСЃС‚Рё СЏС‰РёРєРѕРІ РІ РЅРµР№ СЃС‚Р°РЅСѓС‚ РЅРµСѓСЏР·РІРёРјС‹РјРё РЅР° 30 СЃРµРєСѓРЅРґ.');
-      return 'Р’РµСЂРЅРѕ. Р’С‹Р±РµСЂРёС‚Рµ Р·РѕРЅСѓ РґР»СЏ СѓРєСЂРµРїР»РµРЅРёСЏ.';
+      this._showTargetPanel('Наведите взгляд на ящик на потолке и подтвердите кликом. До шести ящиков вокруг него будут укреплены на 30 секунд.', false);
+      return 'Верно. Наведите взгляд на зону, которую хотите укрепить.';
+      this._showTargetPanel('Выберите область 3x3. До шести ящиков в ней станут неуязвимыми на 30 секунд.');
+      return 'Верно. Выберите зону для укрепления.';
     }
 
     if (slot.bonus === 'stealth') {
@@ -1513,7 +1513,7 @@ class Game {
         this._showTopicPanel();
         this._markUiDirty();
       }, 620);
-      return 'Р’РµСЂРЅРѕ. РњРѕРЅСЃС‚СЂ РїРѕС‚РµСЂСЏР» РІР°СЃ РЅР° 6 СЃРµРєСѓРЅРґ.';
+      return 'Верно. Монстр потерял вас на 6 секунд.';
     }
 
     if (slot.bonus === 'cleanup') {
@@ -1528,7 +1528,7 @@ class Game {
           this._showTopicPanel();
           this._markUiDirty();
         }, 620);
-        return 'Р’РµСЂРЅРѕ, РЅРѕ СЂСЏРґРѕРј РЅРµС‚ Р·Р°РІР°Р»Р° РґР»СЏ СЂР°СЃС‡РёСЃС‚РєРё.';
+        return 'Верно, но рядом нет завала для расчистки.';
       }
 
       this.state = 'target_select';
@@ -1536,11 +1536,11 @@ class Game {
       this.targetSourceSlotId = slot.id;
       this._showTargetPanel('\u041d\u0430\u0432\u0435\u0434\u0438\u0442\u0435 \u043a\u0443\u0440\u0441\u043e\u0440 \u043d\u0430 \u0441\u043e\u0441\u0435\u0434\u043d\u0438\u0439 \u0437\u0430\u0432\u0430\u043b \u0438 \u043a\u043b\u0438\u043a\u043d\u0438\u0442\u0435 \u043f\u043e \u043d\u0435\u043c\u0443.', false);
       return '\u0412\u0435\u0440\u043d\u043e. \u041d\u0430\u0432\u0435\u0434\u0438\u0442\u0435 \u043a\u0443\u0440\u0441\u043e\u0440 \u043d\u0430 \u0441\u043e\u0441\u0435\u0434\u043d\u0438\u0439 \u0437\u0430\u0432\u0430\u043b.';
-      this._showTargetPanel('Р’С‹Р±РµСЂРёС‚Рµ РѕРґРёРЅ Р·Р°РІР°Р» РЅР° СЃРѕСЃРµРґРЅРµР№ РєР»РµС‚РєРµ.');
-      return 'Р’РµСЂРЅРѕ. Р’С‹Р±РµСЂРёС‚Рµ СЃРѕСЃРµРґРЅРёР№ Р·Р°РІР°Р».';
+      this._showTargetPanel('Выберите один завал на соседней клетке.');
+      return 'Верно. Выберите соседний завал.';
     }
 
-    return 'Р’РµСЂРЅРѕ.';
+    return 'Верно.';
   }
 
   movePlayer(relativeDirection) {
@@ -1553,12 +1553,12 @@ class Game {
     const nextY = this.player.y + delta.y;
 
     if (!this._isActiveTile(nextX, nextY)) {
-      this._showMessage('РўР°Рј РїСѓСЃС‚РѕС‚Р° Р‘Р°С€РЅРё.', 900);
+      this._showMessage('Там пустота Башни.', 900);
       return;
     }
 
     if (this._isBlocked(nextX, nextY)) {
-      this._showMessage('РџСѓС‚СЊ Р·Р°РІР°Р»РµРЅ СѓРїР°РІС€РёРј СЏС‰РёРєРѕРј.', 1000);
+      this._showMessage('Путь завален упавшим ящиком.', 1000);
       return;
     }
 
@@ -1599,7 +1599,7 @@ class Game {
     this.runOpenedHatches += 1;
     this.floorData.lastPlayerMoveAt = performance.now();
     this.audio.playHatchOpen();
-    this._showMessage('Р›СЋРє РѕС‚РєСЂС‹С‚. РљР°РјРµРЅСЊ РїРѕРґ РЅРѕРіР°РјРё СЃС‚Р°Р» С‚РѕРЅСЊС€Рµ.', 1400);
+    this._showMessage('Люк открыт. Камень под ногами стал тоньше.', 1400);
 
     if (this._getOpenedHatchCount() >= 3) {
       this._completeFloor();
@@ -1663,7 +1663,7 @@ class Game {
     this.targetSourceSlotId = null;
     this.state = 'topic_select';
     this._showTopicPanel();
-    this._showMessage('Р—РѕРЅР° РїРѕРґСЃРІРµС‡РµРЅР°. РЎРјРѕС‚СЂРёС‚Рµ РЅР° СЂР°РјРєРё СЏС‰РёРєРѕРІ РЅР° СЃС…РµРјРµ.', 1800);
+    this._showMessage('Зона подсвечена. Смотрите на рамки ящиков на схеме.', 1800);
     this._markUiDirty();
   }
 
@@ -1693,14 +1693,14 @@ class Game {
     this.targetSourceSlotId = null;
     this.state = 'topic_select';
     this._showTopicPanel();
-    this._showMessage('РЇС‰РёРєРё РІ РІС‹Р±СЂР°РЅРЅРѕР№ Р·РѕРЅРµ РІСЂРµРјРµРЅРЅРѕ СѓРєСЂРµРїР»РµРЅС‹.', 1800);
+    this._showMessage('Ящики в выбранной зоне временно укреплены.', 1800);
     this._markUiDirty();
   }
 
   _applyCleanupTarget(x, y) {
     const key = tileKey(x, y);
     if (!this.floorData.debrisMap[key]) {
-      this._showMessage('Р­С‚Р° РєР»РµС‚РєР° РЅРµ Р·Р°РІР°Р»РµРЅР°.', 900);
+      this._showMessage('Эта клетка не завалена.', 900);
       return;
     }
 
@@ -1710,7 +1710,7 @@ class Game {
     this.targetSourceSlotId = null;
     this.state = 'topic_select';
     this._showTopicPanel();
-    this._showMessage('РџСЂРѕС…РѕРґ СЂСЏРґРѕРј СЂР°СЃС‡РёС‰РµРЅ.', 1400);
+    this._showMessage('Проход рядом расчищен.', 1400);
     this._markUiDirty();
   }
 
@@ -1758,7 +1758,7 @@ class Game {
     this.state = 'transition';
     this.audio.playCollapse();
     this.renderer.shake(0.18, 1200);
-    this.ui.transitionBanner.textContent = 'РџРѕР» Р»РѕРјР°РµС‚СЃСЏ. Р’С‹ РїР°РґР°РµС‚Рµ РЅР° СЃР»РµРґСѓСЋС‰РёР№ СЌС‚Р°Р¶...';
+    this.ui.transitionBanner.textContent = 'Пол ломается. Вы падаете на следующий этаж...';
     this.ui.transitionBanner.classList.remove('hidden');
     this._hidePanels();
 
@@ -1776,7 +1776,7 @@ class Game {
     this._hidePanels();
     this._saveScore(true);
     this.ui.winStats.textContent =
-      `Р’С‹ РїСЂРѕС€Р»Рё РІСЃРµ 5 СЌС‚Р°Р¶РµР№. РўРѕС‡РЅРѕСЃС‚СЊ: ${this._getAccuracy()}%. РџСЂР°РІРёР»СЊРЅС‹С… РѕС‚РІРµС‚РѕРІ: ${this.questionsCorrect}/${this.questionsAnswered}. РћС‚РєСЂС‹С‚Рѕ Р»СЋРєРѕРІ: ${this.runOpenedHatches}/15.`;
+      `Вы прошли все 5 этажей. Точность: ${this._getAccuracy()}%. Правильных ответов: ${this.questionsCorrect}/${this.questionsAnswered}. Открыто люков: ${this.runOpenedHatches}/15.`;
 
     window.setTimeout(() => {
       if (this.renderer) {
@@ -1799,20 +1799,20 @@ class Game {
 
     if (reason === 'box' && box) {
       this.deathInfo = {
-        title: 'РќР• РЈР“Р›РЇР”Р•Р›Р РЎР’Р•Р РҐРЈ',
-        message: `РЎРІРµСЂС…Сѓ СЃРѕСЂРІР°Р»СЃСЏ ${BOX_TYPES[box.type].label.toLowerCase()} СЏС‰РёРє. Р’С‹ СЃС‚РѕСЏР»Рё РЅР° РєР»РµС‚РєРµ ${box.x + 1}:${box.y + 1}.`
+        title: 'НЕ УГЛЯДЕЛИ СВЕРХУ',
+        message: `Сверху сорвался ${BOX_TYPES[box.type].label.toLowerCase()} ящик. Вы стояли на клетке ${box.x + 1}:${box.y + 1}.`
       };
     } else {
       this.deathInfo = {
-        title: 'РћРќ Р”РћР“РќРђР› Р’РђРЎ',
-        message: `РњРѕРЅСЃС‚СЂ СЃС…РІР°С‚РёР» РІР°СЃ РЅР° РїРѕР»Сѓ. Р•РіРѕ РїРѕР·РёС†РёСЏ: ${this.monster.x + 1}:${this.monster.y + 1}.`
+        title: 'ОН ДОГНАЛ ВАС',
+        message: `Монстр схватил вас на полу. Его позиция: ${this.monster.x + 1}:${this.monster.y + 1}.`
       };
     }
 
     this.ui.loseTitle.textContent = this.deathInfo.title;
-    this.ui.loseMessage.textContent = `${this.deathInfo.message} РћС‚РєСЂС‹С‚Рѕ Р»СЋРєРѕРІ: ${this._getOpenedHatchCount()}/3 РЅР° С‚РµРєСѓС‰РµРј СЌС‚Р°Р¶Рµ.`;
+    this.ui.loseMessage.textContent = `${this.deathInfo.message} Открыто люков: ${this._getOpenedHatchCount()}/3 на текущем этаже.`;
     this.ui.loseStats.textContent =
-      `Р­С‚Р°Р¶: ${this.currentFloor}. РўРѕС‡РЅРѕСЃС‚СЊ: ${this._getAccuracy()}%. РџСЂР°РІРёР»СЊРЅС‹С… РѕС‚РІРµС‚РѕРІ: ${this.questionsCorrect}/${this.questionsAnswered}.`;
+      `Этаж: ${this.currentFloor}. Точность: ${this._getAccuracy()}%. Правильных ответов: ${this.questionsCorrect}/${this.questionsAnswered}.`;
 
     window.setTimeout(() => {
       if (this.renderer) {
@@ -1921,7 +1921,7 @@ class Game {
       button.innerHTML = `
         <span class="topic-name">${index + 1}. ${this._escapeHtml(config.grammarTopic)}</span>
         <span class="topic-bonus">${this._escapeHtml(config.slotDef.bonusLabel)}</span>
-        <span class="topic-cooldown">${cooldown > 0 ? `CD: ${Math.ceil(cooldown / 1000)} c` : 'Р“РѕС‚РѕРІРѕ'}</span>
+        <span class="topic-cooldown">${cooldown > 0 ? `CD: ${Math.ceil(cooldown / 1000)} c` : 'Готово'}</span>
       `;
       button.addEventListener('click', () => this.selectTopic(config.slotDef.id));
       this.ui.topicButtons.appendChild(button);
@@ -1943,7 +1943,7 @@ class Game {
   _showActionPanel() {
     this._hidePanels();
     this.ui.actionPanel.classList.remove('hidden');
-    this.ui.actionPrompt.textContent = `Р’С‹Р±РµСЂРёС‚Рµ РЅР°РїСЂР°РІР»РµРЅРёРµ. Р”РµР№СЃС‚РІРёР№ РѕСЃС‚Р°Р»РѕСЃСЊ: ${this.movesLeft}.`;
+    this.ui.actionPrompt.textContent = `Выберите направление. Действий осталось: ${this.movesLeft}.`;
 
     document.querySelectorAll('.dir-btn').forEach((button) => {
       const delta = this.renderer.getMoveDelta(button.dataset.dir, this.player.facing);
@@ -2043,27 +2043,27 @@ class Game {
   }
 
   _updateHud(now) {
-    this.ui.floorTitle.textContent = `${this.floorConfig.name} вЂў ${this.floorConfig.subtitle}`;
-    this.ui.floorMeta.textContent = `Р­С‚Р°Р¶ ${this.currentFloor} РёР· ${FLOOR_CONFIGS.length}`;
+    this.ui.floorTitle.textContent = `${this.floorConfig.name} • ${this.floorConfig.subtitle}`;
+    this.ui.floorMeta.textContent = `Этаж ${this.currentFloor} из ${FLOOR_CONFIGS.length}`;
     this.ui.runNameDisplay.textContent = this.runName;
-    this.ui.lexicalTopicDisplay.textContent = `РўРµРјР°: ${this.lexicalTopic}`;
+    this.ui.lexicalTopicDisplay.textContent = `Тема: ${this.lexicalTopic}`;
     this.ui.monsterDisplay.textContent = this._describeMonster(now);
-    this.ui.movesDisplay.textContent = `Р”РµР№СЃС‚РІРёСЏ: ${this.movesLeft}`;
-    this.ui.hatchDisplay.textContent = `Р›СЋРєРё: ${this._getOpenedHatchCount()}/3`;
+    this.ui.movesDisplay.textContent = `Действия: ${this.movesLeft}`;
+    this.ui.hatchDisplay.textContent = `Люки: ${this._getOpenedHatchCount()}/3`;
 
     if (this.lookFreezeCooldownUntil > now) {
-      this.ui.freezeLabel.textContent = 'Р’Р·РіР»СЏРґ РїРµСЂРµР·Р°СЂСЏР¶Р°РµС‚СЃСЏ';
+      this.ui.freezeLabel.textContent = 'Взгляд перезаряжается';
       this.ui.freezeMeter.textContent = `${formatSeconds(this.lookFreezeCooldownUntil - now)} c`;
     } else {
-      this.ui.freezeLabel.textContent = 'Р’Р·РіР»СЏРґ';
+      this.ui.freezeLabel.textContent = 'Взгляд';
       this.ui.freezeMeter.textContent = `${formatSeconds(this.lookFreezeBudgetMs)} c`;
     }
 
     this.ui.quakeDisplay.classList.toggle('hidden', this.quake.phase === 'idle');
     if (this.quake.phase === 'warning') {
-      this.ui.quakeDisplay.textContent = `РўРѕР»С‡РѕРє С‡РµСЂРµР· ${formatSeconds(this.quake.warnUntil - now)} c`;
+      this.ui.quakeDisplay.textContent = `Толчок через ${formatSeconds(this.quake.warnUntil - now)} c`;
     } else if (this.quake.phase === 'active') {
-      this.ui.quakeDisplay.textContent = `РўРѕР»С‡РѕРє РёРґС‘С‚: ${formatSeconds(this.quake.activeUntil - now)} c`;
+      this.ui.quakeDisplay.textContent = `Толчок идёт: ${formatSeconds(this.quake.activeUntil - now)} c`;
     }
 
     this.ui.lookUpButton.classList.toggle('active', this.player.lookMode === 'up');
@@ -2077,41 +2077,41 @@ class Game {
 
     this.ui.statusEffects.innerHTML = '';
     if (this.monster.hiddenUntil > now) {
-      this.ui.statusEffects.appendChild(this._createStatusBadge(`РњР°СЃРєРёСЂРѕРІРєР°: ${formatSeconds(this.monster.hiddenUntil - now)} c`, 'success'));
+      this.ui.statusEffects.appendChild(this._createStatusBadge(`Маскировка: ${formatSeconds(this.monster.hiddenUntil - now)} c`, 'success'));
     }
     if (hasReveal) {
-      this.ui.statusEffects.appendChild(this._createStatusBadge('Р’РёРґРЅС‹ stability-СЂР°РјРєРё', 'warning'));
+      this.ui.statusEffects.appendChild(this._createStatusBadge('Видны stability-рамки', 'warning'));
     }
     if (hasFortify) {
-      this.ui.statusEffects.appendChild(this._createStatusBadge('РЈРєСЂРµРїР»РµРЅРёРµ Р°РєС‚РёРІРЅРѕ', 'success'));
+      this.ui.statusEffects.appendChild(this._createStatusBadge('Укрепление активно', 'success'));
     }
     if (hasWarning) {
-      this.ui.statusEffects.appendChild(this._createStatusBadge('РЎРІРµСЂС…Сѓ С‡С‚Рѕ-С‚Рѕ С‚СЂРµС‰РёС‚', 'warning'));
+      this.ui.statusEffects.appendChild(this._createStatusBadge('Сверху что-то трещит', 'warning'));
     }
     if (this.monster.state === 'stunned') {
-      this.ui.statusEffects.appendChild(this._createStatusBadge('РњРѕРЅСЃС‚СЂ РѕРіР»СѓС€С‘РЅ', 'danger'));
+      this.ui.statusEffects.appendChild(this._createStatusBadge('Монстр оглушён', 'danger'));
     }
   }
 
   _describeMonster(now) {
     if (this.monster.state === 'ceiling') {
       if (this._isCeilingMonsterFrozen(now)) {
-        return 'Der Fehler: Р·Р°СЃС‚С‹Р» РЅР° РїРѕС‚РѕР»РєРµ';
+        return 'Der Fehler: застыл на потолке';
       }
       if (this.monster.hiddenUntil > now) {
-        return 'Der Fehler: Р±Р»СѓР¶РґР°РµС‚ РЅР° РїРѕС‚РѕР»РєРµ';
+        return 'Der Fehler: блуждает на потолке';
       }
       if (this.monster.x === this.player.x && this.monster.y === this.player.y) {
-        return 'Der Fehler: Р·Р°РІРёСЃ РїСЂСЏРјРѕ РЅР°Рґ РІР°РјРё';
+        return 'Der Fehler: завис прямо над вами';
       }
-      return `Der Fehler: РїРѕС‚РѕР»РѕРє ${this.monster.x + 1}:${this.monster.y + 1}`;
+      return `Der Fehler: потолок ${this.monster.x + 1}:${this.monster.y + 1}`;
     }
 
     if (this.monster.state === 'stunned') {
-      return `Der Fehler: РѕРіР»СѓС€С‘РЅ ${formatSeconds(this.monster.stateUntil - now)} c`;
+      return `Der Fehler: оглушён ${formatSeconds(this.monster.stateUntil - now)} c`;
     }
 
-    return `Der Fehler: РїРѕР» ${this.monster.x + 1}:${this.monster.y + 1}`;
+    return `Der Fehler: пол ${this.monster.x + 1}:${this.monster.y + 1}`;
   }
 
   _renderBoard(now) {
@@ -2119,7 +2119,7 @@ class Game {
     const board = this.ui.boardPanel;
     board.innerHTML = '';
     board.style.gridTemplateColumns = `repeat(${config.width}, minmax(0, 1fr))`;
-    this.ui.boardHeading.textContent = this.player.lookMode === 'up' ? 'РџРѕС‚РѕР»РѕРє' : 'РџРѕР»';
+    this.ui.boardHeading.textContent = this.player.lookMode === 'up' ? 'Потолок' : 'Пол';
 
     for (let y = 0; y < config.height; y += 1) {
       for (let x = 0; x < config.width; x += 1) {
@@ -2173,9 +2173,9 @@ class Game {
           cell.classList.add('player');
           cell.dataset.label = this._getFacingArrow();
         } else if (hatch && !hatch.opened) {
-          cell.dataset.label = 'Р›';
+          cell.dataset.label = 'Л';
         } else if (hatch && hatch.opened) {
-          cell.dataset.label = 'Рћ';
+          cell.dataset.label = 'О';
         } else if (debris) {
           cell.dataset.label = 'X';
         } else {
@@ -2187,12 +2187,12 @@ class Game {
     }
 
     this.ui.boardLegend.textContent = this.player.lookMode === 'up'
-      ? 'Р Р°РјРєРё СЏС‰РёРєРѕРІ РїРѕРєР°Р·С‹РІР°СЋС‚ СЂРёСЃРє С‚РѕР»СЊРєРѕ РїРѕСЃР»Рµ Р Р°СЃС€РёСЂРµРЅРЅРѕРіРѕ Р·СЂРµРЅРёСЏ. РЎРёРЅРёР№ Р·РЅР°Рє РѕР·РЅР°С‡Р°РµС‚ СѓРєСЂРµРїР»РµРЅРёРµ.'
-      : 'Р›СЋРє = С†РµР»СЊ. X = Р·Р°РІР°Р». РњРѕРЅСЃС‚СЂ РЅР° РїРѕР»Сѓ РїСЂРѕС…РѕРґРёС‚ СЃРєРІРѕР·СЊ Р·Р°РІР°Р»С‹, Р° РІС‹ РЅРµС‚.';
+      ? 'Рамки ящиков показывают риск только после Расширенного зрения. Синий знак означает укрепление.'
+      : 'Люк = цель. X = завал. Монстр на полу проходит сквозь завалы, а вы нет.';
   }
 
   _getFacingArrow() {
-    return ['в†‘', 'в†’', 'в†“', 'в†ђ'][this.player.facing] || 'в†‘';
+    return ['↑', '→', '↓', '←'][this.player.facing] || '↑';
   }
 
   _createStatusBadge(text, kind) {

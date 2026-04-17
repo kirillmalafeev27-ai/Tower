@@ -2052,6 +2052,30 @@ class TowerRenderer {
     );
   }
 
+  worldToCell(worldX, worldZ) {
+    const halfW = this.floorData.config.width * this.cellSize * 0.5;
+    const halfH = this.floorData.config.height * this.cellSize * 0.5;
+    return {
+      x: THREE.MathUtils.clamp(
+        Math.round((worldX + halfW - this.cellSize * 0.5) / this.cellSize),
+        0,
+        this.floorData.config.width - 1
+      ),
+      y: THREE.MathUtils.clamp(
+        Math.round((worldZ + halfH - this.cellSize * 0.5) / this.cellSize),
+        0,
+        this.floorData.config.height - 1
+      )
+    };
+  }
+
+  _getFloorTopAtCell(x, y) {
+    const floorNode = this.floorNodes[tileKey(x, y)];
+    return floorNode
+      ? floorNode.position.y + ((floorNode.geometry?.parameters?.height || 0.2) * 0.5)
+      : 0.08;
+  }
+
   _getFacingYaw(facing) {
     return [0, -Math.PI / 2, Math.PI, Math.PI / 2][facing] || 0;
   }
@@ -2364,10 +2388,15 @@ class TowerRenderer {
     const clampPadZ = Math.max(this.cellSize * 0.48, panelHeight * 0.5 + 0.2);
     const rawX = world.x - Math.sin(panelYaw) * forwardOffset;
     const rawZ = world.z - Math.cos(panelYaw) * forwardOffset;
+    const panelCell = this.worldToCell(rawX, rawZ);
+    const panelCellKey = tileKey(panelCell.x, panelCell.y);
+    const floorTop = this.floorNodes[panelCellKey]
+      ? this._getFloorTopAtCell(panelCell.x, panelCell.y)
+      : this._getFloorTopAtCell(player.x, player.y);
     this.questionPanelGroup.visible = true;
     this.questionPanelGroup.position.set(
       THREE.MathUtils.clamp(rawX, -halfW + clampPadX, halfW - clampPadX),
-      0.04 + hoverLift,
+      floorTop + 0.045 + hoverLift,
       THREE.MathUtils.clamp(rawZ, -halfH + clampPadZ, halfH - clampPadZ)
     );
     this.questionPanelGroup.rotation.set(0, panelYaw, 0);
