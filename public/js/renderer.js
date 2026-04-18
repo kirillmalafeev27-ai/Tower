@@ -1,3 +1,5 @@
+const QUESTION_PANEL_BASE_PITCH = -0.68;
+
 class TowerRenderer {
   constructor(canvas) {
     this.canvas = canvas;
@@ -31,6 +33,7 @@ class TowerRenderer {
     this.boxNodeList = [];
     this.hatchNodes = Object.create(null);
     this.debrisNodes = Object.create(null);
+    this.debrisNodeList = [];
     this.floorNodes = Object.create(null);
     this.monsterGroup = null;
     this.monsterPulseMaterials = [];
@@ -52,6 +55,20 @@ class TowerRenderer {
     this.questionOptionRects = [];
     this.questionHoverIndex = -1;
     this.questionSignature = '';
+    this.questionPanelPlacement = {
+      x: 0,
+      y: 0,
+      z: 0,
+      yaw: 0,
+      scale: 1,
+      panelWidth: 0,
+      panelHeight: 0,
+      focusX: 0,
+      focusY: 0,
+      focusZ: 0
+    };
+    this.questionCameraFocus = { yaw: 0, pitch: QUESTION_PANEL_BASE_PITCH };
+    this.cleanupTargetKeySet = null;
     this.raycaster = new THREE.Raycaster();
     this.screenCenter = new THREE.Vector2(0, 0);
     this.pointerNdc = new THREE.Vector2(0, 0);
@@ -334,6 +351,7 @@ class TowerRenderer {
     this.boxNodeList = [];
     this.hatchNodes = Object.create(null);
     this.debrisNodes = Object.create(null);
+    this.debrisNodeList = [];
     this.floorNodes = Object.create(null);
     this.wallTorches = [];
 
@@ -376,6 +394,7 @@ class TowerRenderer {
     }
     this.floorData = null;
     this.boxNodeList = [];
+    this.debrisNodeList = [];
     this.wallTorches = [];
     this.moteField = null;
     this.monsterGroup = null;
@@ -388,6 +407,7 @@ class TowerRenderer {
     this.questionOptionRects = [];
     this.questionHoverIndex = -1;
     this.questionSignature = '';
+    this.cleanupTargetKeySet = null;
     this.targetHoverBoxKey = null;
     this.targetHoverDebrisKey = null;
   }
@@ -1275,6 +1295,7 @@ class TowerRenderer {
       debris.receiveShadow = true;
       this.root.add(debris);
       this.debrisNodes[tileKey(tile.x, tile.y)] = debris;
+      this.debrisNodeList.push(debris);
     });
   }
 
@@ -2078,6 +2099,69 @@ class TowerRenderer {
       : 0.08;
   }
 
+  _measureQuestionPanel(player, panelYaw) {
+    if (!this.floorData) {
+      return null;
+    }
+
+    const world = this.cellToWorld(player.x, player.y);
+    const forwardOffset = this.cellSize * 0.42;
+    const hoverLift = Math.sin(this.clock.elapsedTime * 4.2) * 0.004;
+    const halfW = this.floorData.config.width * this.cellSize * 0.5;
+    const halfH = this.floorData.config.height * this.cellSize * 0.5;
+    const edgeDistance = Math.min(
+      player.x,
+      this.floorData.config.width - 1 - player.x,
+      player.y,
+      this.floorData.config.height - 1 - player.y
+    );
+    const edgeFactor = THREE.MathUtils.clamp(edgeDistance / 1.5, 0, 1);
+    const panelScale = 0.88 + edgeFactor * 0.34;
+    const panelWidth = (this.questionPanelGroup?.userData.panelWidth || this.cellSize * 0.9) * panelScale;
+    const panelHeight = (this.questionPanelGroup?.userData.panelHeight || this.cellSize * 0.7) * panelScale;
+    const clampPadX = Math.max(this.cellSize * 0.38, panelWidth * 0.5 + 0.12);
+    const clampPadZ = Math.max(this.cellSize * 0.38, panelHeight * 0.5 + 0.12);
+    const rawX = world.x - Math.sin(panelYaw) * forwardOffset;
+    const rawZ = world.z - Math.cos(panelYaw) * forwardOffset;
+    const clampedX = THREE.MathUtils.clamp(rawX, -halfW + clampPadX, halfW - clampPadX);
+    const clampedZ = THREE.MathUtils.clamp(rawZ, -halfH + clampPadZ, halfH - clampPadZ);
+    const panelCell = this.worldToCell(clampedX, clampedZ);
+    const panelCellKey = tileKey(panelCell.x, panelCell.y);
+    const floorTop = this.floorNodes[panelCellKey]
+      ? this._getFloorTopAtCell(panelCell.x, panelCell.y)
+      : this._getFloorTopAtCell(player.x, player.y);
+    const focusLead = Math.min(panelHeight * 0.1, this.cellSize * 0.18);
+    const placement = this.questionPanelPlacement;
+    placement.x = clampedX;
+    placement.y = floorTop + 0.105 + hoverLift;
+    placement.z = clampedZ;
+    placement.yaw = panelYaw;
+    placement.scale = panelScale;
+    placement.panelWidth = panelWidth;
+    placement.panelHeight = panelHeight;
+    placement.focusX = clampedX - Math.sin(panelYaw) * focusLead;
+    placement.focusY = placement.y + 0.08;
+    placement.focusZ = clampedZ - Math.cos(panelYaw) * focusLead;
+    return placement;
+  }
+
+  getQuestionCameraFocus(player, panelYaw) {
+    const placement = this._measureQuestionPanel(player, panelYaw);
+    if (!placement) {
+      return null;
+    }
+
+    const eye = this.cellToWorld(player.x, player.y);
+    eye.y = this.eyeHeight;
+    const dx = placement.focusX - eye.x;
+    const dy = placement.focusY - eye.y;
+    const dz = placement.focusZ - eye.z;
+    const horizontalDistance = Math.max(0.0001, Math.hypot(dx, dz));
+    this.questionCameraFocus.yaw = Math.atan2(-dx, -dz);
+    this.questionCameraFocus.pitch = THREE.MathUtils.clamp(Math.atan2(dy, horizontalDistance), -1.22, 1.18);
+    return this.questionCameraFocus;
+  }
+
   _getFacingYaw(facing) {
     return [0, -Math.PI / 2, Math.PI, Math.PI / 2][facing] || 0;
   }
@@ -2101,7 +2185,7 @@ class TowerRenderer {
     }
 
     const pitchOffset = typeof player.cameraPitch === 'number' ? player.cameraPitch : 0;
-    const basePitch = this.snapshot?.question?.active ? -0.68 : player.lookMode === 'up' ? 0.54 : -0.08;
+    const basePitch = this.snapshot?.question?.active ? QUESTION_PANEL_BASE_PITCH : player.lookMode === 'up' ? 0.54 : -0.08;
     return Math.max(-1.22, Math.min(1.18, basePitch + pitchOffset));
   }
 
@@ -2134,6 +2218,8 @@ class TowerRenderer {
 
   sync(snapshot) {
     this.snapshot = snapshot;
+    const cleanupKeys = snapshot?.targeting?.cleanupKeys;
+    this.cleanupTargetKeySet = cleanupKeys?.length ? new Set(cleanupKeys) : null;
   }
 
   getMoveDelta(relativeDirection, facing = this.playerState.facing) {
@@ -2309,14 +2395,15 @@ class TowerRenderer {
       node.lid.rotation.z = hatch.opened ? -0.9 : 0;
     });
 
-    Object.keys(this.debrisNodes).forEach((key) => {
-      const debris = this.debrisNodes[key];
+    for (let index = 0; index < this.debrisNodeList.length; index += 1) {
+      const debris = this.debrisNodeList[index];
+      const key = debris.userData.debrisKey;
       const isVisible = Boolean(floorData.debrisMap[key]);
       debris.visible = isVisible;
       debris.scale.setScalar(key === this.targetHoverDebrisKey ? 1.04 : 1);
       debris.material.emissive.setHex(key === this.targetHoverDebrisKey ? 0xc28d47 : 0x000000);
       debris.material.emissiveIntensity = key === this.targetHoverDebrisKey ? 0.34 : 0;
-    });
+    }
 
     const monsterWorld = this.cellToWorld(monster.x, monster.y);
     let targetY = monster.state === 'stunned' ? 0.72 : 0.78;
@@ -2378,42 +2465,17 @@ class TowerRenderer {
       return;
     }
 
-    const world = this.cellToWorld(player.x, player.y);
     const panelYaw = typeof question.panelYaw === 'number' ? question.panelYaw : 0;
-    const forwardOffset = this.cellSize * 0.42;
-    const hoverLift = Math.sin(this.clock.elapsedTime * 4.2) * 0.004;
-    const halfW = this.floorData.config.width * this.cellSize * 0.5;
-    const halfH = this.floorData.config.height * this.cellSize * 0.5;
-    const edgeDistance = Math.min(
-      player.x,
-      this.floorData.config.width - 1 - player.x,
-      player.y,
-      this.floorData.config.height - 1 - player.y
-    );
-    const edgeFactor = THREE.MathUtils.clamp(edgeDistance / 1.5, 0, 1);
-    const panelScale = 0.88 + edgeFactor * 0.34;
-    this.questionPanelGroup.scale.setScalar(panelScale);
+    const placement = this._measureQuestionPanel(player, panelYaw);
+    if (!placement) {
+      this.questionPanelGroup.visible = false;
+      return;
+    }
 
-    const panelWidth = (this.questionPanelGroup.userData.panelWidth || this.cellSize * 0.9) * panelScale;
-    const panelHeight = (this.questionPanelGroup.userData.panelHeight || this.cellSize * 0.7) * panelScale;
-    const clampPadX = Math.max(this.cellSize * 0.38, panelWidth * 0.5 + 0.12);
-    const clampPadZ = Math.max(this.cellSize * 0.38, panelHeight * 0.5 + 0.12);
-    const rawX = world.x - Math.sin(panelYaw) * forwardOffset;
-    const rawZ = world.z - Math.cos(panelYaw) * forwardOffset;
-    const clampedX = THREE.MathUtils.clamp(rawX, -halfW + clampPadX, halfW - clampPadX);
-    const clampedZ = THREE.MathUtils.clamp(rawZ, -halfH + clampPadZ, halfH - clampPadZ);
-    const panelCell = this.worldToCell(clampedX, clampedZ);
-    const panelCellKey = tileKey(panelCell.x, panelCell.y);
-    const floorTop = this.floorNodes[panelCellKey]
-      ? this._getFloorTopAtCell(panelCell.x, panelCell.y)
-      : this._getFloorTopAtCell(player.x, player.y);
     this.questionPanelGroup.visible = true;
-    this.questionPanelGroup.position.set(
-      clampedX,
-      floorTop + 0.105 + hoverLift,
-      clampedZ
-    );
-    this.questionPanelGroup.rotation.set(0, panelYaw, 0);
+    this.questionPanelGroup.scale.setScalar(placement.scale);
+    this.questionPanelGroup.position.set(placement.x, placement.y, placement.z);
+    this.questionPanelGroup.rotation.set(0, placement.yaw, 0);
 
     const nextSignature = JSON.stringify({
       topic: question.topic,
@@ -2531,16 +2593,17 @@ class TowerRenderer {
       return null;
     }
 
-    const allowedCleanupKeys = this.snapshot?.targeting?.cleanupKeys || null;
-    const targets = Object.values(this.debrisNodes).filter((debris) => {
+    const targets = [];
+    for (let index = 0; index < this.debrisNodeList.length; index += 1) {
+      const debris = this.debrisNodeList[index];
       if (!debris.visible) {
-        return false;
+        continue;
       }
-      if (!allowedCleanupKeys) {
-        return true;
+      if (this.cleanupTargetKeySet && !this.cleanupTargetKeySet.has(debris.userData.debrisKey)) {
+        continue;
       }
-      return allowedCleanupKeys.includes(debris.userData.debrisKey);
-    });
+      targets.push(debris);
+    }
 
     if (!targets.length) {
       return null;

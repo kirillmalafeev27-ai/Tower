@@ -2,16 +2,18 @@ const SCREEN_IDS = ['menu-screen', 'game-screen', 'win-screen', 'lose-screen', '
 const LOOK_FREEZE_MAX_MS = 10000;
 const LOOK_FREEZE_COOLDOWN_MS = 10000;
 const LOOK_UP_PITCH_THRESHOLD = 0.18;
+const QUESTION_CAMERA_BASE_PITCH = -0.68;
 const REVEAL_DURATION_MS = 10000;
 const FORTIFY_DURATION_MS = 30000;
 const STEALTH_DURATION_MS = 6000;
 const MONSTER_STUN_MS = 3000;
 const MONSTER_FLOOR_MS = 5000;
-const MONSTER_AI_DELAY_MULTIPLIER = 1.5;
+const MONSTER_AI_DELAY_MULTIPLIER = 2.25;
 const MONSTER_FLOOR_AI_DELAY_MULTIPLIER = 1.3;
 const MONSTER_BOX_PRESSURE_BASE_MS = 7500;
 const MONSTER_BOX_PRESSURE_MULTIPLIER = 2.5;
 const MONSTER_BOX_PRESSURE_FORTIFIED_MULTIPLIER = 1.5;
+const BOX_DECAY_SLOW_MULTIPLIER = 1.5;
 const BOX_FORTIFY_DECAY_SLOW_MULTIPLIER = 2;
 const QUAKE_WARNING_MS = 2500;
 const QUAKE_ACTIVE_MS = 5000;
@@ -788,6 +790,8 @@ class Game {
       return 0;
     }
 
+    decayPerSecond /= BOX_DECAY_SLOW_MULTIPLIER;
+
     if (fortified) {
       decayPerSecond /= BOX_FORTIFY_DECAY_SLOW_MULTIPLIER;
     }
@@ -864,7 +868,7 @@ class Game {
 
   _getPlayerViewPitch() {
     const pitchOffset = typeof this.player.cameraPitch === 'number' ? this.player.cameraPitch : 0;
-    const basePitch = this.state === 'question' ? -0.68 : this.player.lookMode === 'up' ? 0.54 : -0.08;
+    const basePitch = this.state === 'question' ? QUESTION_CAMERA_BASE_PITCH : this.player.lookMode === 'up' ? 0.54 : -0.08;
     return clamp(basePitch + pitchOffset, -1.22, 1.18);
   }
 
@@ -1399,6 +1403,21 @@ class Game {
     this._markUiDirty();
   }
 
+  _centerCameraOnQuestionPanel() {
+    if (!this.renderer) {
+      return;
+    }
+
+    const focus = this.renderer.getQuestionCameraFocus(this.player, this.questionPanelYaw);
+    if (!focus) {
+      return;
+    }
+
+    this.player.cameraYaw = normalizeAngle(focus.yaw);
+    this.player.cameraPitch = clamp(focus.pitch - QUESTION_CAMERA_BASE_PITCH, -0.95, 1.05);
+    this.player.facing = this._yawToFacing(this.player.cameraYaw);
+  }
+
   selectTopic(slotId) {
     if (this.state !== 'topic_select') {
       return;
@@ -1421,6 +1440,7 @@ class Game {
     this.questionPanelYaw = typeof this.player.cameraYaw === 'number'
       ? this.player.cameraYaw
       : this._facingToYaw(this.player.facing);
+    this._centerCameraOnQuestionPanel();
     this.state = 'question';
     this._showQuestion(question);
     this._markUiDirty();
