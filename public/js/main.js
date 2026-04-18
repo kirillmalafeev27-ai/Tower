@@ -5,6 +5,26 @@ const LANG_LEVEL_KEY = 'turm_lang_level';
 
 const game = new Game();
 
+function safeStorageGet(key, fallback = '') {
+  try {
+    const value = localStorage.getItem(key);
+    return value === null ? fallback : value;
+  } catch (error) {
+    console.warn(`Storage read failed for ${key}:`, error);
+    return fallback;
+  }
+}
+
+function safeStorageSet(key, value) {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (error) {
+    console.warn(`Storage write failed for ${key}:`, error);
+    return false;
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const ui = {
     menuScreen: document.getElementById('menu-screen'),
@@ -26,12 +46,12 @@ document.addEventListener('DOMContentLoaded', () => {
   let selectedLexical = null;
   let selectedGrammar = null;
   let selectedSlotIndex = null;
-  let selectedLevel = localStorage.getItem(LANG_LEVEL_KEY) || DEFAULT_CEFR_LEVEL;
+  let selectedLevel = safeStorageGet(LANG_LEVEL_KEY, DEFAULT_CEFR_LEVEL) || DEFAULT_CEFR_LEVEL;
   const slotAssignments = Array(BONUS_SLOTS.length).fill(null);
   let pendingTutorialCallback = null;
 
-  ui.playerName.value = localStorage.getItem(PLAYER_NAME_KEY) || '';
-  ui.runName.value = localStorage.getItem(RUN_NAME_KEY) || '';
+  ui.playerName.value = safeStorageGet(PLAYER_NAME_KEY, '');
+  ui.runName.value = safeStorageGet(RUN_NAME_KEY, '');
 
   renderLexicalGrid();
   renderSlots();
@@ -99,8 +119,8 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    if (!localStorage.getItem(TUTORIAL_SEEN_KEY)) {
-      localStorage.setItem(TUTORIAL_SEEN_KEY, '1');
+    if (!safeStorageGet(TUTORIAL_SEEN_KEY, '')) {
+      safeStorageSet(TUTORIAL_SEEN_KEY, '1');
       showTutorial(() => startGame(settings));
       return;
     }
@@ -349,9 +369,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const playerName = ui.playerName.value.trim() || 'Spieler';
     const runName = ui.runName.value.trim() || 'Безымянный спуск';
 
-    localStorage.setItem(PLAYER_NAME_KEY, playerName);
-    localStorage.setItem(RUN_NAME_KEY, runName);
-    localStorage.setItem(LANG_LEVEL_KEY, selectedLevel);
+    safeStorageSet(PLAYER_NAME_KEY, playerName);
+    safeStorageSet(RUN_NAME_KEY, runName);
+    safeStorageSet(LANG_LEVEL_KEY, selectedLevel);
 
     return {
       playerName,
