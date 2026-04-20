@@ -5,5 +5,7 @@ services:
     buildCommand: npm install
     startCommand: node server.js
     envVars:
-      - key: ANTHROPIC_API_KEY
+      - key: AITUNNEL_API_KEY
         sync: false
+      - key: AITUNNEL_MODEL
+        value: gpt-5.4
