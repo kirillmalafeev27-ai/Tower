@@ -1,4 +1,5 @@
 const DEFAULT_CEFR_LEVEL = 'A2';
+const QUESTIONS_PER_TOPIC = 10;
 
 const GRAMMAR_TOPICS = [
   'Praesens',
@@ -266,7 +267,7 @@ class QuestionManager {
         lexicalTopic: this.lexicalTopic,
         grammarTopic,
         isWortstellung,
-        count: 30,
+        count: QUESTIONS_PER_TOPIC,
         exclude: seen
       })
     });
