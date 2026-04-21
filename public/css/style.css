@@ -1036,6 +1036,11 @@ input {
   grid-area: right;
 }
 
+.action-secondary {
+  display: block;
+  margin: 14px auto 0;
+}
+
 .dir-btn:disabled {
   opacity: 0.24;
   cursor: not-allowed;
