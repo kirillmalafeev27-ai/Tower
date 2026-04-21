@@ -5,16 +5,21 @@ const LOOK_UP_PITCH_THRESHOLD = 0.18;
 const QUESTION_CAMERA_BASE_PITCH = -0.68;
 const REVEAL_DURATION_MS = 10000;
 const FORTIFY_DURATION_MS = 30000;
-const STEALTH_DURATION_MS = 6000;
+const STEALTH_DURATION_MS = 17000;
 const MONSTER_STUN_MS = 3000;
 const MONSTER_FLOOR_MS = 5000;
 const MONSTER_AI_DELAY_MULTIPLIER = 2.25;
 const MONSTER_FLOOR_AI_DELAY_MULTIPLIER = 1.3;
+const MONSTER_MOVE_SLOW_MULTIPLIER = 1.5;
 const MONSTER_BOX_PRESSURE_BASE_MS = 7500;
 const MONSTER_BOX_PRESSURE_MULTIPLIER = 2.5;
 const MONSTER_BOX_PRESSURE_FORTIFIED_MULTIPLIER = 1.5;
 const BOX_DECAY_SLOW_MULTIPLIER = 1.5;
 const BOX_FORTIFY_DECAY_SLOW_MULTIPLIER = 2;
+const BOX_DECAY_GLOBAL_SLOW_MULTIPLIER = 1.5;
+const RANDOM_FALL_DELAY_SLOW_MULTIPLIER = 1.5;
+const LOOK_FREEZE_BOX_DECAY_MULTIPLIER = 1.5;
+const LOOK_FREEZE_CHAIN_FALL_COUNT = 2;
 const QUAKE_WARNING_MS = 2500;
 const QUAKE_ACTIVE_MS = 5000;
 const FLOOR_TRANSITION_MS = 2200;
@@ -175,10 +180,12 @@ class Game {
     this.currentQuestion = null;
     this.questionFeedback = null;
     this.questionAnsweredIndex = null;
+    this.pendingFeedbackTextOverride = null;
     this.questionPanelYaw = 0;
     this.targetMode = null;
     this.targetSourceSlotId = null;
     this.movesLeft = 0;
+    this.canSkipBonusMove = false;
     this.slotCooldowns = Object.create(null);
 
     this.lookFreezeBudgetMs = LOOK_FREEZE_MAX_MS;
@@ -220,6 +227,7 @@ class Game {
       monsterDisplay: document.getElementById('monster-display'),
       movesDisplay: document.getElementById('moves-display'),
       hatchDisplay: document.getElementById('hatch-display'),
+      skipMoveButton: document.getElementById('skip-move-btn'),
       freezeLabel: document.getElementById('freeze-label'),
       freezeMeter: document.getElementById('freeze-meter'),
       quakeDisplay: document.getElementById('quake-display'),
@@ -249,6 +257,7 @@ class Game {
     this.ui.lookUpButton.addEventListener('click', () => this.setLookMode('up'));
     this.ui.lookDownButton.addEventListener('click', () => this.setLookMode('down'));
     this.ui.useHatchButton.addEventListener('click', () => this.tryUseHatch());
+    this.ui.skipMoveButton.addEventListener('click', () => this.skipExtraMove());
     this.ui.cancelTargetButton.addEventListener('click', () => this.cancelTargeting());
 
     document.querySelectorAll('.dir-btn').forEach((button) => {
@@ -404,9 +413,11 @@ class Game {
     this.currentQuestion = null;
     this.questionFeedback = null;
     this.questionAnsweredIndex = null;
+    this.pendingFeedbackTextOverride = null;
     this.questionPanelYaw = 0;
     this.targetMode = null;
     this.targetSourceSlotId = null;
+    this.canSkipBonusMove = false;
     this.slotCooldowns = Object.create(null);
     this.lookFreezeBudgetMs = LOOK_FREEZE_MAX_MS;
     this.lookFreezeCooldownUntil = 0;
@@ -441,7 +452,7 @@ class Game {
       debrisMap: Object.create(null),
       plannedQuakeTriggered: false,
       lastPlayerMoveAt: performance.now(),
-      nextRandomFallAt: performance.now() + BOX_RANDOM_FALL_START_MS,
+      nextRandomFallAt: performance.now() + Math.round(BOX_RANDOM_FALL_START_MS * RANDOM_FALL_DELAY_SLOW_MULTIPLIER),
       pendingFallBoxKey: null
     };
   }
@@ -696,7 +707,12 @@ class Game {
 
       box.stability = Math.max(0, box.stability - box.maxStability * decayPerSecond * deltaSeconds);
       if (box.stability <= 0) {
-        this._dropBox(box, this._isMonsterPressuringBox(box) ? 'monster' : 'rot');
+        const cause = this._isLookFreezePressuringBox(box, now)
+          ? 'gaze-freeze'
+          : this._isMonsterPressuringBox(box)
+            ? 'monster'
+            : 'rot';
+        this._dropBox(box, cause);
       }
     });
 
@@ -765,7 +781,8 @@ class Game {
     const base = Math.max(3800, 7600 - this.currentFloor * 620);
     const variance = Math.max(1800, 3200 - this.currentFloor * 180);
     const quakePressure = this.quake.phase === 'active' ? -900 : this.quake.phase === 'warning' ? -450 : 0;
-    return Math.max(2600, randomInt(base + quakePressure, base + variance + quakePressure));
+    const rawDelay = Math.max(2600, randomInt(base + quakePressure, base + variance + quakePressure));
+    return Math.round(rawDelay * RANDOM_FALL_DELAY_SLOW_MULTIPLIER);
   }
 
   _isMonsterPressuringBox(box) {
@@ -780,13 +797,25 @@ class Game {
     );
   }
 
+  _isLookFreezePressuringBox(box, now) {
+    return Boolean(
+      box
+      && this.monster?.state === 'ceiling'
+      && this.monster.x === box.x
+      && this.monster.y === box.y
+      && this._getLiveBox(box.x, box.y) === box
+      && this._isCeilingMonsterFrozen(now)
+    );
+  }
+
   _getBoxDecayPerSecond(box, now) {
     const template = BOX_TYPES[box.type] || {};
     const fortified = box.fortifiedUntil > now;
     const pressuredByMonster = this._isMonsterPressuringBox(box);
+    const pressuredByFrozenGaze = this._isLookFreezePressuringBox(box, now);
     let decayPerSecond = template.faultPerSecond || 0;
 
-    if (!decayPerSecond && pressuredByMonster) {
+    if (!decayPerSecond && (pressuredByMonster || pressuredByFrozenGaze)) {
       decayPerSecond = 1000 / MONSTER_BOX_PRESSURE_BASE_MS;
     }
 
@@ -794,31 +823,40 @@ class Game {
       return 0;
     }
 
-    decayPerSecond /= BOX_DECAY_SLOW_MULTIPLIER;
+    decayPerSecond /= (BOX_DECAY_SLOW_MULTIPLIER * BOX_DECAY_GLOBAL_SLOW_MULTIPLIER);
 
     if (fortified) {
       decayPerSecond /= BOX_FORTIFY_DECAY_SLOW_MULTIPLIER;
     }
 
-    if (pressuredByMonster) {
+    if (pressuredByMonster || pressuredByFrozenGaze) {
       decayPerSecond *= fortified
         ? MONSTER_BOX_PRESSURE_FORTIFIED_MULTIPLIER
         : MONSTER_BOX_PRESSURE_MULTIPLIER;
+    }
+
+    if (pressuredByFrozenGaze) {
+      decayPerSecond *= LOOK_FREEZE_BOX_DECAY_MULTIPLIER;
     }
 
     return decayPerSecond;
   }
 
   _getMonsterCeilingMoveDelayMs() {
-    return Math.round(this.floorConfig.ceilingMoveMs * MONSTER_AI_DELAY_MULTIPLIER);
+    return Math.round(this.floorConfig.ceilingMoveMs * MONSTER_AI_DELAY_MULTIPLIER * MONSTER_MOVE_SLOW_MULTIPLIER);
   }
 
   _getMonsterFloorMoveDelayMs() {
-    return Math.round(this.floorConfig.floorMoveMs * MONSTER_AI_DELAY_MULTIPLIER * MONSTER_FLOOR_AI_DELAY_MULTIPLIER);
+    return Math.round(
+      this.floorConfig.floorMoveMs
+      * MONSTER_AI_DELAY_MULTIPLIER
+      * MONSTER_FLOOR_AI_DELAY_MULTIPLIER
+      * MONSTER_MOVE_SLOW_MULTIPLIER
+    );
   }
 
   _getMonsterJumpCooldownDelayMs() {
-    return Math.round(this.floorConfig.jumpCooldownMs * MONSTER_AI_DELAY_MULTIPLIER);
+    return Math.round(this.floorConfig.jumpCooldownMs * MONSTER_AI_DELAY_MULTIPLIER * MONSTER_MOVE_SLOW_MULTIPLIER);
   }
 
   _updateMonster(now) {
@@ -1252,7 +1290,7 @@ class Game {
     });
 
     if (this.monster.state === 'ceiling' && this.monster.x === box.x && this.monster.y === box.y) {
-      this._sendMonsterToFloor();
+      this._sendMonsterToFloor(cause === 'gaze-freeze');
     }
 
     if (box.type === 'anchor') {
@@ -1270,7 +1308,35 @@ class Game {
       return;
     }
 
+    if (cause === 'gaze-freeze') {
+      const chainedFalls = this._dropRandomBoxes(LOOK_FREEZE_CHAIN_FALL_COUNT, 'gaze-chain', new Set([box.key]));
+      if (chainedFalls > 0 && this.state !== 'lost' && this.state !== 'won') {
+        this._showMessage(`Взгляд перегрузил потолок: сорвались ещё ${chainedFalls} ящика.`, 1800);
+      }
+    }
+
     this._markUiDirty();
+  }
+
+  _dropRandomBoxes(count, cause, excludedKeys = new Set()) {
+    if (!count || this.state === 'lost' || this.state === 'won') {
+      return 0;
+    }
+
+    const candidates = this._getFloorBoxes().filter((box) => !box.fallen && !excludedKeys.has(box.key));
+    let dropped = 0;
+
+    shuffleArray(candidates).slice(0, count).forEach((box) => {
+      if (this.state === 'lost' || this.state === 'won') {
+        return;
+      }
+      this._dropBox(box, cause);
+      if (box.fallen) {
+        dropped += 1;
+      }
+    });
+
+    return dropped;
   }
 
   _sendMonsterToFloor(triggeredByPlayer) {
@@ -1469,7 +1535,10 @@ class Game {
       this.questionsCorrect += 1;
       this.audio.playCorrectAnswer();
       this.questionManager.onCorrectAnswer(this.currentSlotId);
-      this._showFeedback(true, this._applyBonus(slotConfig));
+      const feedbackText = this._applyBonus(slotConfig);
+      const resolvedFeedbackText = this.pendingFeedbackTextOverride || feedbackText;
+      this.pendingFeedbackTextOverride = null;
+      this._showFeedback(true, resolvedFeedbackText);
       return;
     }
 
@@ -1543,6 +1612,7 @@ class Game {
 
     if (slot.bonus === 'move2') {
       this.movesLeft = 2;
+      this.canSkipBonusMove = true;
       this._clearTransitionTimeout();
       this.transitionTimeoutId = window.setTimeout(() => {
         if (this.state === 'lost' || this.state === 'won') {
@@ -1585,6 +1655,7 @@ class Game {
       this.monster.hiddenUntil = now + STEALTH_DURATION_MS;
       this.slotCooldowns[slot.id] = now + slot.successCooldownMs;
       this.audio.playStealth();
+      this.pendingFeedbackTextOverride = `Верно. Монстр потерял вас на ${Math.round(STEALTH_DURATION_MS / 1000)} секунд.`;
       this._clearTransitionTimeout();
       this.transitionTimeoutId = window.setTimeout(() => {
         if (this.state === 'lost' || this.state === 'won') {
@@ -1658,6 +1729,7 @@ class Game {
     if (this.movesLeft > 0) {
       this._showActionPanel();
     } else {
+      this.canSkipBonusMove = false;
       this.state = 'topic_select';
       this._showTopicPanel();
     }
@@ -1686,6 +1758,27 @@ class Game {
       this._completeFloor();
       return;
     }
+
+    if (this.movesLeft > 0) {
+      this._showActionPanel();
+    } else {
+      this.canSkipBonusMove = false;
+      this.state = 'topic_select';
+      this._showTopicPanel();
+    }
+
+    this._markUiDirty();
+  }
+
+  skipExtraMove() {
+    if (this.state !== 'action_select' || this.movesLeft <= 0 || !this.canSkipBonusMove) {
+      return;
+    }
+
+    this.movesLeft = Math.max(0, this.movesLeft - 1);
+    this.canSkipBonusMove = false;
+    this.floorData.lastPlayerMoveAt = performance.now();
+    this._showMessage('Лишнее действие пропущено.', 1000);
 
     if (this.movesLeft > 0) {
       this._showActionPanel();
@@ -2024,7 +2117,10 @@ class Game {
   _showActionPanel() {
     this._hidePanels();
     this.ui.actionPanel.classList.remove('hidden');
-    this.ui.actionPrompt.textContent = `Выберите направление. Действий осталось: ${this.movesLeft}.`;
+    this.ui.actionPrompt.textContent = this.canSkipBonusMove
+      ? `Выберите направление, люк или пропустите лишний ход. Действий осталось: ${this.movesLeft}.`
+      : `Выберите направление. Действий осталось: ${this.movesLeft}.`;
+    this.ui.skipMoveButton.classList.toggle('hidden', !(this.canSkipBonusMove && this.movesLeft > 0));
 
     document.querySelectorAll('.dir-btn').forEach((button) => {
       const delta = this.renderer.getMoveDelta(button.dataset.dir, this.player.facing);

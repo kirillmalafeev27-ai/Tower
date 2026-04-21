@@ -96,6 +96,7 @@ const BONUS_SLOTS = [
     bonusLabel: '+2 хода',
     successCooldownMs: 0,
     wrongCooldownMs: 0,
+    helpOverride: 'Главный слот движения. Правильный ответ даёт 2 действия, а одно лишнее можно пропустить.',
     help: 'Главный слот движения. Правильный ответ даёт 2 действия.'
   },
   {
@@ -120,6 +121,7 @@ const BONUS_SLOTS = [
     bonusLabel: 'Маскировка',
     successCooldownMs: 30000,
     wrongCooldownMs: 0,
+    helpOverride: 'Монстр теряет игрока на 17 секунд и блуждает.',
     help: 'Монстр теряет игрока на 6 секунд и блуждает.'
   },
   {
@@ -147,6 +149,7 @@ class QuestionManager {
     this.lexicalTopic = null;
     this.questionPool = Object.create(null);
     this.fetching = Object.create(null);
+    this.fetchErrors = Object.create(null);
     this.slots = [];
     this.lastQuestion = null;
     this.usedDisplays = Object.create(null);
@@ -157,6 +160,7 @@ class QuestionManager {
       this.level = level;
       this.questionPool = Object.create(null);
       this.fetching = Object.create(null);
+      this.fetchErrors = Object.create(null);
       this.usedDisplays = Object.create(null);
       this.lastQuestion = null;
     }
@@ -167,6 +171,7 @@ class QuestionManager {
       this.lexicalTopic = topic;
       this.questionPool = Object.create(null);
       this.fetching = Object.create(null);
+      this.fetchErrors = Object.create(null);
       this.usedDisplays = Object.create(null);
       this.lastQuestion = null;
     }
@@ -255,36 +260,52 @@ class QuestionManager {
 
   async _fetchQuestions(slotConfig) {
     const slotId = slotConfig.slotDef.id;
-    const seen = Array.from(this.usedDisplays[slotId] || []).slice(-12);
-    const grammarTopic = slotConfig.grammarTopic;
-    const isWortstellung = /wortstellung/i.test(grammarTopic);
+    try {
+      const seen = Array.from(this.usedDisplays[slotId] || []).slice(-12);
+      const grammarTopic = slotConfig.grammarTopic;
+      const isWortstellung = /wortstellung/i.test(grammarTopic);
 
-    const response = await fetch('/api/generate-questions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        level: this.level,
-        lexicalTopic: this.lexicalTopic,
-        grammarTopic,
-        isWortstellung,
-        count: QUESTIONS_PER_TOPIC,
-        exclude: seen
-      })
-    });
+      const response = await fetch('/api/generate-questions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          level: this.level,
+          lexicalTopic: this.lexicalTopic,
+          grammarTopic,
+          isWortstellung,
+          count: QUESTIONS_PER_TOPIC,
+          exclude: seen
+        })
+      });
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+      let data = null;
+      try {
+        data = await response.json();
+      } catch (error) {
+        data = null;
+      }
+
+      if (!response.ok) {
+        const message =
+          data?.detail ||
+          data?.error ||
+          `HTTP ${response.status}`;
+        throw new Error(message);
+      }
+
+      const valid = (data.questions || []).filter((question) => this._isValidQuestion(question));
+      if (!valid.length) {
+        throw new Error('Model ne vernula ni odnogo validnogo uprazhneniya.');
+      }
+
+      delete this.fetchErrors[slotId];
+      const pool = [...(this.questionPool[slotId] || []), ...shuffleArray(valid)];
+      this.questionPool[slotId] = pool;
+      return pool;
+    } catch (error) {
+      this.fetchErrors[slotId] = error?.message || 'Neizvestnaya oshibka generatsii.';
+      throw error;
     }
-
-    const data = await response.json();
-    const valid = (data.questions || []).filter((question) => this._isValidQuestion(question));
-    if (!valid.length) {
-      return [];
-    }
-
-    const pool = [...(this.questionPool[slotId] || []), ...shuffleArray(valid)];
-    this.questionPool[slotId] = pool;
-    return pool;
   }
 
   _isValidQuestion(question) {
@@ -319,6 +340,9 @@ class QuestionManager {
   }
 
   _fallbackQuestion(slotConfig) {
+    const rawReason = this.fetchErrors[slotConfig.slotDef.id] || 'Server voprosov nedostupen.';
+    const reason = rawReason.length > 160 ? `${rawReason.slice(0, 157)}...` : rawReason;
+
     return {
       slotId: slotConfig.slotDef.id,
       slotDef: slotConfig.slotDef,
@@ -329,6 +353,10 @@ class QuestionManager {
       options: {
         options: ['OK', 'Pause', 'Fehler', 'Zurueck'],
         correctIndex: 0
+      },
+      ...{
+        text: 'Rezervnoe uprazhnenie',
+        display: `Oshibka generatsii: ${reason}`
       }
     };
   }

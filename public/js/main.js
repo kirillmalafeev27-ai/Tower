@@ -250,6 +250,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (moveKeyMap[event.key]) {
         event.preventDefault();
         game.movePlayer(moveKeyMap[event.key]);
+        return;
+      }
+
+      if (event.key === 'x' || event.key === 'X') {
+        event.preventDefault();
+        game.skipExtraMove();
       }
     }
   });
@@ -293,7 +299,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       slotElement.querySelector('.slot-bonus').textContent = slot.bonusLabel;
       slotElement.querySelector('.slot-topic').textContent = grammar || 'Пусто';
-      slotElement.querySelector('.slot-grammar').textContent = slot.help;
+      slotElement.querySelector('.slot-grammar').textContent = slot.helpOverride || slot.help;
       slotElement.classList.toggle('selected-slot', selectedSlotIndex === index);
       slotElement.classList.toggle('has-topic', Boolean(grammar));
       slotElement.classList.toggle('empty', !grammar);
