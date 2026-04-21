@@ -7,6 +7,7 @@ const AITUNNEL_BASE_URL = (process.env.AITUNNEL_BASE_URL || 'https://api.aitunne
 const MODEL_NAME = process.env.AITUNNEL_MODEL || 'gpt-5.4';
 const REQUEST_TIMEOUT_MS = Math.max(10000, Number(process.env.AITUNNEL_TIMEOUT_MS) || 45000);
 const DEFAULT_QUESTIONS_COUNT = 10;
+const MAX_GENERATION_ATTEMPTS = 2;
 
 app.use(express.json({ limit: '1mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -334,6 +335,39 @@ function parseGeneratedQuestions(payload) {
   return questions;
 }
 
+async function generateValidQuestions({
+  prompt,
+  isWortstellung,
+  questionsCount
+}) {
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= MAX_GENERATION_ATTEMPTS; attempt += 1) {
+    try {
+      const payload = await requestQuestionsFromAitunnel({
+        prompt,
+        isWortstellung,
+        questionsCount
+      });
+
+      const parsedQuestions = parseGeneratedQuestions(payload);
+      const validQuestions = parsedQuestions.filter((question) =>
+        isValidQuestion(question, { isWortstellung })
+      );
+
+      if (validQuestions.length > 0) {
+        return validQuestions;
+      }
+
+      lastError = new Error('Das Modell hat keine validen Aufgaben erzeugt.');
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError || new Error('Unbekannter Fehler bei der Aufgabengenerierung.');
+}
+
 async function requestQuestionsFromAitunnel({ prompt, isWortstellung, questionsCount }) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -411,16 +445,11 @@ app.post('/api/generate-questions', async (req, res) => {
       exclude
     });
 
-    const payload = await requestQuestionsFromAitunnel({
+    const validQuestions = await generateValidQuestions({
       prompt,
       isWortstellung,
       questionsCount
     });
-
-    const parsedQuestions = parseGeneratedQuestions(payload);
-    const validQuestions = parsedQuestions.filter((question) =>
-      isValidQuestion(question, { isWortstellung })
-    );
 
     if (validQuestions.length > questionsCount) {
       questionPool[cacheKey] = questionPool[cacheKey] || [];
