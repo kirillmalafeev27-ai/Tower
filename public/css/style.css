@@ -1273,6 +1273,21 @@ input {
   }
 }
 
+@media (hover: none) and (pointer: coarse) and (max-width: 720px),
+  (hover: none) and (pointer: coarse) and (max-height: 500px) {
+  #hud {
+    display: none;
+  }
+
+  #view-controls {
+    top: 120px;
+  }
+
+  #action-strip {
+    top: 204px;
+  }
+}
+
 @supports (padding: env(safe-area-inset-bottom)) {
   #hud {
     top: calc(10px + env(safe-area-inset-top));
@@ -1284,5 +1299,16 @@ input {
   #target-panel,
   #controls-hint {
     bottom: calc(12px + env(safe-area-inset-bottom));
+  }
+
+  @media (hover: none) and (pointer: coarse) and (max-width: 720px),
+    (hover: none) and (pointer: coarse) and (max-height: 500px) {
+    #view-controls {
+      top: calc(120px + env(safe-area-inset-top));
+    }
+
+    #action-strip {
+      top: calc(204px + env(safe-area-inset-top));
+    }
   }
 }
