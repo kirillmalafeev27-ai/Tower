@@ -627,7 +627,7 @@ class Game {
       this._markUiDirty();
     }
 
-    if (this._isLookingAtCeilingMonster() && !this.lookFreezeCooldownUntil && this.lookFreezeBudgetMs > 0) {
+    if (this._isLookingAtCeilingMonster() && this._canUseLookFreeze(now)) {
       this.lookFreezeBudgetMs = Math.max(0, this.lookFreezeBudgetMs - deltaMs);
       if (this.lookFreezeBudgetMs === 0) {
         this.lookFreezeCooldownUntil = now + LOOK_FREEZE_COOLDOWN_MS;
@@ -785,6 +785,10 @@ class Game {
     return Math.round(rawDelay * RANDOM_FALL_DELAY_SLOW_MULTIPLIER);
   }
 
+  _canUseLookFreeze(now) {
+    return this.lookFreezeBudgetMs > 0 && (!this.lookFreezeCooldownUntil || this.lookFreezeCooldownUntil <= now);
+  }
+
   _isMonsterPressuringBox(box) {
     return Boolean(
       box
@@ -905,7 +909,7 @@ class Game {
   }
 
   _isCeilingMonsterFrozen(now) {
-    return this.monster.state === 'ceiling' && this._isLookingAtCeilingMonster() && !this.lookFreezeCooldownUntil && this.lookFreezeBudgetMs > 0;
+    return this.monster?.state === 'ceiling' && this._isLookingAtCeilingMonster() && this._canUseLookFreeze(now);
   }
 
   _getPlayerViewPitch() {
@@ -2220,6 +2224,7 @@ class Game {
   }
 
   _updateHud(now) {
+    const lookFreezeActive = this._isCeilingMonsterFrozen(now);
     this.ui.floorTitle.textContent = `${this.floorConfig.name} • ${this.floorConfig.subtitle}`;
     this.ui.floorMeta.textContent = `Этаж ${this.currentFloor} из ${FLOOR_CONFIGS.length}`;
     this.ui.runNameDisplay.textContent = this.runName;
@@ -2253,6 +2258,9 @@ class Game {
     const hasWarning = floorBoxes.some((box) => !box.fallen && box.scheduledFallAt > now);
 
     this.ui.statusEffects.innerHTML = '';
+    if (lookFreezeActive) {
+      this.ui.statusEffects.appendChild(this._createStatusBadge('Монстр застыл под взглядом', 'warning'));
+    }
     if (this.monster.hiddenUntil > now) {
       this.ui.statusEffects.appendChild(this._createStatusBadge(`Маскировка: ${formatSeconds(this.monster.hiddenUntil - now)} c`, 'success'));
     }
