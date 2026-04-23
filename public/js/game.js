@@ -1780,13 +1780,13 @@ class Game {
     }
 
     this.movesLeft = Math.max(0, this.movesLeft - 1);
-    this.canSkipBonusMove = false;
     this.floorData.lastPlayerMoveAt = performance.now();
     this._showMessage('Лишнее действие пропущено.', 1000);
 
     if (this.movesLeft > 0) {
       this._showActionPanel();
     } else {
+      this.canSkipBonusMove = false;
       this.state = 'topic_select';
       this._showTopicPanel();
     }
@@ -2121,10 +2121,14 @@ class Game {
   _showActionPanel() {
     this._hidePanels();
     this.ui.actionPanel.classList.remove('hidden');
+    this.ui.skipMoveButton.textContent = 'ПРОПУСТИТЬ ХОД [X]';
     this.ui.actionPrompt.textContent = this.canSkipBonusMove
       ? `Выберите направление, люк или пропустите лишний ход. Действий осталось: ${this.movesLeft}.`
       : `Выберите направление. Действий осталось: ${this.movesLeft}.`;
     this.ui.skipMoveButton.classList.toggle('hidden', !(this.canSkipBonusMove && this.movesLeft > 0));
+    if (this.canSkipBonusMove) {
+      this.ui.actionPrompt.textContent = `Выберите направление, люк или пропустите ход. Действий осталось: ${this.movesLeft}.`;
+    }
 
     document.querySelectorAll('.dir-btn').forEach((button) => {
       const delta = this.renderer.getMoveDelta(button.dataset.dir, this.player.facing);
