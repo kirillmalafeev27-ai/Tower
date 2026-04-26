@@ -2,6 +2,13 @@ const PLAYER_NAME_KEY = 'turm_player_name';
 const RUN_NAME_KEY = 'turm_run_name';
 const TUTORIAL_SEEN_KEY = 'turm_tutorial_seen';
 const LANG_LEVEL_KEY = 'turm_lang_level';
+const DIFFICULTY_KEY = 'turm_difficulty';
+const DEFAULT_DIFFICULTY = 'medium';
+const DIFFICULTY_HINTS = {
+  hard: 'Сложный: ящики падают часто, монстр двигается быстро.',
+  medium: 'Средний: ящики падают в 1.5 раза реже, монстр двигается в 1.5 раза реже.',
+  easy: 'Лёгкий: ящики падают в 2 раза реже, монстр двигается в 2 раза реже.'
+};
 
 const game = new Game();
 
@@ -40,6 +47,8 @@ document.addEventListener('DOMContentLoaded', () => {
     tutorialOverlay: document.getElementById('tutorial-overlay'),
     tutorialClose: document.getElementById('tutorial-close'),
     levelButtons: Array.from(document.querySelectorAll('.level-btn')),
+    difficultyButtons: Array.from(document.querySelectorAll('.difficulty-btn')),
+    difficultyHint: document.getElementById('difficulty-hint'),
     startButton: document.getElementById('start-btn')
   };
 
@@ -47,6 +56,10 @@ document.addEventListener('DOMContentLoaded', () => {
   let selectedGrammar = null;
   let selectedSlotIndex = null;
   let selectedLevel = safeStorageGet(LANG_LEVEL_KEY, DEFAULT_CEFR_LEVEL) || DEFAULT_CEFR_LEVEL;
+  let selectedDifficulty = safeStorageGet(DIFFICULTY_KEY, DEFAULT_DIFFICULTY) || DEFAULT_DIFFICULTY;
+  if (!DIFFICULTY_HINTS[selectedDifficulty]) {
+    selectedDifficulty = DEFAULT_DIFFICULTY;
+  }
   const slotAssignments = Array(BONUS_SLOTS.length).fill(null);
   let pendingTutorialCallback = null;
 
@@ -57,6 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
   renderSlots();
   renderGrammarPicker();
   renderLevelButtons();
+  renderDifficultyButtons();
   updateStartButton();
   showStep(1);
 
@@ -90,6 +104,18 @@ document.addEventListener('DOMContentLoaded', () => {
     button.addEventListener('click', () => {
       selectedLevel = button.dataset.level || DEFAULT_CEFR_LEVEL;
       renderLevelButtons();
+    });
+  });
+
+  ui.difficultyButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      const value = button.dataset.difficulty;
+      if (!DIFFICULTY_HINTS[value]) {
+        return;
+      }
+      selectedDifficulty = value;
+      safeStorageSet(DIFFICULTY_KEY, selectedDifficulty);
+      renderDifficultyButtons();
     });
   });
 
@@ -312,6 +338,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  function renderDifficultyButtons() {
+    ui.difficultyButtons.forEach((button) => {
+      button.classList.toggle('active', button.dataset.difficulty === selectedDifficulty);
+    });
+    if (ui.difficultyHint) {
+      ui.difficultyHint.textContent = DIFFICULTY_HINTS[selectedDifficulty] || '';
+    }
+  }
+
   function renderGrammarPicker() {
     ui.grammarPicker.innerHTML = '';
     const usedTopics = slotAssignments.filter(Boolean);
@@ -378,12 +413,14 @@ document.addEventListener('DOMContentLoaded', () => {
     safeStorageSet(PLAYER_NAME_KEY, playerName);
     safeStorageSet(RUN_NAME_KEY, runName);
     safeStorageSet(LANG_LEVEL_KEY, selectedLevel);
+    safeStorageSet(DIFFICULTY_KEY, selectedDifficulty);
 
     return {
       playerName,
       runName,
       langLevel: selectedLevel,
       lexicalTopic: selectedLexical,
+      difficulty: selectedDifficulty,
       level: 1,
       slotConfigs: BONUS_SLOTS.map((slotDef, index) => ({
         slotDef,

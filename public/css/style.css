@@ -272,6 +272,96 @@ input {
   box-shadow: 0 12px 28px rgba(122, 77, 27, 0.22);
 }
 
+.difficulty-group {
+  max-width: 520px;
+  margin: 0 auto 18px;
+  text-align: center;
+}
+
+.difficulty-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.difficulty-btn {
+  min-width: 110px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(11, 14, 20, 0.84);
+  color: var(--text);
+  cursor: pointer;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease,
+    color 0.18s ease;
+}
+
+.difficulty-btn:hover {
+  transform: translateY(-1px);
+}
+
+.difficulty-btn.active {
+  border-color: var(--line-strong);
+  background:
+    linear-gradient(180deg, rgba(82, 48, 21, 0.92), rgba(24, 16, 13, 0.94));
+  color: #ffe6b6;
+  box-shadow: 0 12px 28px rgba(122, 77, 27, 0.22);
+}
+
+.difficulty-hint {
+  margin: 10px auto 0;
+  max-width: 460px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.hud-pill-label {
+  color: var(--muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.difficulty-controls {
+  display: flex;
+  gap: 6px;
+}
+
+.difficulty-mini-btn {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(11, 14, 20, 0.84);
+  color: var(--text);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    background 0.18s ease,
+    color 0.18s ease;
+}
+
+.difficulty-mini-btn:hover {
+  transform: translateY(-1px);
+}
+
+.difficulty-mini-btn.active {
+  border-color: var(--line-strong);
+  background:
+    linear-gradient(180deg, rgba(82, 48, 21, 0.92), rgba(24, 16, 13, 0.94));
+  color: #ffe6b6;
+}
+
 .lexical-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

@@ -36,6 +36,15 @@
             <button type="button" class="level-btn" data-level="B2">B2</button>
           </div>
         </div>
+        <div class="option-group difficulty-group">
+          <label>Сложность</label>
+          <div id="difficulty-buttons" class="difficulty-buttons">
+            <button type="button" class="difficulty-btn" data-difficulty="hard">СЛОЖНЫЙ</button>
+            <button type="button" class="difficulty-btn" data-difficulty="medium">СРЕДНИЙ</button>
+            <button type="button" class="difficulty-btn" data-difficulty="easy">ЛЁГКИЙ</button>
+          </div>
+          <p class="difficulty-hint" id="difficulty-hint">Средний: ящики падают в 1.5 раза реже, монстр двигается в 1.5 раза реже.</p>
+        </div>
         <h2 class="step-title">Назовите забег</h2>
         <p class="step-hint">Это имя попадёт в локальную статистику и поможет отличать разные проходы Башни.</p>
         <div class="menu-options">
@@ -148,6 +157,14 @@
         <span id="freeze-meter">10.0 c</span>
       </div>
       <div id="quake-display" class="hud-pill hidden">Толчок зреет</div>
+      <div id="difficulty-display" class="hud-pill">
+        <span class="hud-pill-label">Сложность</span>
+        <div id="difficulty-controls" class="difficulty-controls">
+          <button type="button" class="difficulty-mini-btn" data-difficulty="hard">Слож.</button>
+          <button type="button" class="difficulty-mini-btn" data-difficulty="medium">Сред.</button>
+          <button type="button" class="difficulty-mini-btn" data-difficulty="easy">Лёгк.</button>
+        </div>
+      </div>
       <div id="status-effects"></div>
     </div>
 

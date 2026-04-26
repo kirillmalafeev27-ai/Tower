@@ -27,6 +27,18 @@ const BOX_WARNING_MS = 3000;
 const BOX_BREAK_ANIM_MS = 900;
 const BOX_RANDOM_FALL_START_MS = 5000;
 
+const DIFFICULTY_MULTIPLIERS = {
+  hard: 1,
+  medium: 1.5,
+  easy: 2
+};
+const DEFAULT_DIFFICULTY = 'medium';
+const DIFFICULTY_LABELS = {
+  hard: 'Сложный',
+  medium: 'Средний',
+  easy: 'Лёгкий'
+};
+
 const BOX_TYPES = {
   normal: { label: 'Обычный', stabilityRange: [45, 60], blocks: true },
   light: { label: 'Лёгкий', stabilityRange: [20, 30], blocks: false },
@@ -169,6 +181,7 @@ class Game {
     this.langLevel = DEFAULT_CEFR_LEVEL;
     this.lexicalTopic = null;
     this.slotConfigs = [];
+    this.difficulty = DEFAULT_DIFFICULTY;
 
     this.currentFloor = 1;
     this.floorConfig = null;
@@ -263,6 +276,12 @@ class Game {
     document.querySelectorAll('.dir-btn').forEach((button) => {
       button.addEventListener('click', () => {
         this.movePlayer(button.dataset.dir);
+      });
+    });
+
+    document.querySelectorAll('.difficulty-mini-btn').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.setDifficulty(button.dataset.difficulty);
       });
     });
 
@@ -385,6 +404,7 @@ class Game {
     this.state = 'topic_select';
     this._showTopicPanel();
     this._hideLoading();
+    this._refreshDifficultyButtons();
     this._showMessage('Башня слушает. Чтобы идти, нужно отвечать точно.', 2400);
     this._markUiDirty(true);
     this._syncRenderer(performance.now());
@@ -403,7 +423,30 @@ class Game {
       slotDef: config.slotDef,
       grammarTopic: config.grammarTopic
     }));
+    if (settings.difficulty && DIFFICULTY_MULTIPLIERS[settings.difficulty]) {
+      this.difficulty = settings.difficulty;
+    }
     this.currentFloor = settings.level || 1;
+  }
+
+  _getDifficultyMultiplier() {
+    return DIFFICULTY_MULTIPLIERS[this.difficulty] || DIFFICULTY_MULTIPLIERS[DEFAULT_DIFFICULTY];
+  }
+
+  setDifficulty(difficulty) {
+    if (!DIFFICULTY_MULTIPLIERS[difficulty] || difficulty === this.difficulty) {
+      return;
+    }
+    this.difficulty = difficulty;
+    this._refreshDifficultyButtons();
+    this._showMessage(`Сложность: ${DIFFICULTY_LABELS[difficulty]}`, 1800);
+  }
+
+  _refreshDifficultyButtons() {
+    const buttons = document.querySelectorAll('.difficulty-mini-btn');
+    buttons.forEach((button) => {
+      button.classList.toggle('active', button.dataset.difficulty === this.difficulty);
+    });
   }
 
   _prepareRunState(preserveRunProgress) {
@@ -452,7 +495,7 @@ class Game {
       debrisMap: Object.create(null),
       plannedQuakeTriggered: false,
       lastPlayerMoveAt: performance.now(),
-      nextRandomFallAt: performance.now() + Math.round(BOX_RANDOM_FALL_START_MS * RANDOM_FALL_DELAY_SLOW_MULTIPLIER),
+      nextRandomFallAt: performance.now() + Math.round(BOX_RANDOM_FALL_START_MS * RANDOM_FALL_DELAY_SLOW_MULTIPLIER * this._getDifficultyMultiplier()),
       pendingFallBoxKey: null
     };
   }
@@ -586,7 +629,7 @@ class Game {
       state: 'ceiling',
       x: farthest?.x || floorData.start.x,
       y: farthest?.y || 0,
-      nextMoveAt: performance.now() + Math.round(floorData.config.ceilingMoveMs * MONSTER_AI_DELAY_MULTIPLIER),
+      nextMoveAt: performance.now() + Math.round(floorData.config.ceilingMoveMs * MONSTER_AI_DELAY_MULTIPLIER * this._getDifficultyMultiplier()),
       stateUntil: 0,
       hiddenUntil: 0,
       jumpCooldownUntil: 0
@@ -782,7 +825,7 @@ class Game {
     const variance = Math.max(1800, 3200 - this.currentFloor * 180);
     const quakePressure = this.quake.phase === 'active' ? -900 : this.quake.phase === 'warning' ? -450 : 0;
     const rawDelay = Math.max(2600, randomInt(base + quakePressure, base + variance + quakePressure));
-    return Math.round(rawDelay * RANDOM_FALL_DELAY_SLOW_MULTIPLIER);
+    return Math.round(rawDelay * RANDOM_FALL_DELAY_SLOW_MULTIPLIER * this._getDifficultyMultiplier());
   }
 
   _canUseLookFreeze(now) {
@@ -847,7 +890,12 @@ class Game {
   }
 
   _getMonsterCeilingMoveDelayMs() {
-    return Math.round(this.floorConfig.ceilingMoveMs * MONSTER_AI_DELAY_MULTIPLIER * MONSTER_MOVE_SLOW_MULTIPLIER);
+    return Math.round(
+      this.floorConfig.ceilingMoveMs
+      * MONSTER_AI_DELAY_MULTIPLIER
+      * MONSTER_MOVE_SLOW_MULTIPLIER
+      * this._getDifficultyMultiplier()
+    );
   }
 
   _getMonsterFloorMoveDelayMs() {
@@ -856,11 +904,17 @@ class Game {
       * MONSTER_AI_DELAY_MULTIPLIER
       * MONSTER_FLOOR_AI_DELAY_MULTIPLIER
       * MONSTER_MOVE_SLOW_MULTIPLIER
+      * this._getDifficultyMultiplier()
     );
   }
 
   _getMonsterJumpCooldownDelayMs() {
-    return Math.round(this.floorConfig.jumpCooldownMs * MONSTER_AI_DELAY_MULTIPLIER * MONSTER_MOVE_SLOW_MULTIPLIER);
+    return Math.round(
+      this.floorConfig.jumpCooldownMs
+      * MONSTER_AI_DELAY_MULTIPLIER
+      * MONSTER_MOVE_SLOW_MULTIPLIER
+      * this._getDifficultyMultiplier()
+    );
   }
 
   _updateMonster(now) {
@@ -2041,6 +2095,7 @@ class Game {
       langLevel: this.langLevel,
       lexicalTopic: this.lexicalTopic,
       slotConfigs: this.slotConfigs,
+      difficulty: this.difficulty,
       level
     };
   }
