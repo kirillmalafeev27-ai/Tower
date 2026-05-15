@@ -387,7 +387,7 @@ class Game {
     this._hideLoading();
     this._showMessage(
       this.gameMode === 'mistake'
-        ? 'Режим «Падение при ошибке»: ящики сорвутся, только если ошибётесь.'
+        ? 'Режим «Падение при ошибке»: монстр охотится, но ящики сорвутся только при ошибке.'
         : 'Башня слушает. Чтобы идти, нужно отвечать точно.',
       2400
     );
@@ -615,9 +615,7 @@ class Game {
     }
 
     if (this.state !== 'lost' && this.state !== 'won') {
-      if (this.gameMode !== 'mistake') {
-        this._updateMonster(now);
-      }
+      this._updateMonster(now);
       this._updatePlannedQuake(now);
     }
 
@@ -823,9 +821,6 @@ class Game {
   }
 
   _getBoxDecayPerSecond(box, now) {
-    if (this.gameMode === 'mistake') {
-      return 0;
-    }
     const template = BOX_TYPES[box.type] || {};
     const fortified = box.fortifiedUntil > now;
     const pressuredByMonster = this._isMonsterPressuringBox(box);
@@ -2253,12 +2248,7 @@ class Game {
     this.ui.floorMeta.textContent = `Этаж ${this.currentFloor} из ${FLOOR_CONFIGS.length}`;
     this.ui.runNameDisplay.textContent = this.runName;
     this.ui.lexicalTopicDisplay.textContent = `Тема: ${this.lexicalTopic}`;
-    if (this.gameMode === 'mistake') {
-      this.ui.monsterDisplay.classList.add('hidden');
-    } else {
-      this.ui.monsterDisplay.classList.remove('hidden');
-      this.ui.monsterDisplay.textContent = this._describeMonster(now);
-    }
+    this.ui.monsterDisplay.textContent = this._describeMonster(now);
     this.ui.movesDisplay.textContent = `Действия: ${this.movesLeft}`;
     this.ui.hatchDisplay.textContent = `Люки: ${this._getOpenedHatchCount()}/3`;
 
