@@ -385,7 +385,12 @@ class Game {
     this.state = 'topic_select';
     this._showTopicPanel();
     this._hideLoading();
-    this._showMessage('Башня слушает. Чтобы идти, нужно отвечать точно.', 2400);
+    this._showMessage(
+      this.gameMode === 'mistake'
+        ? 'Режим «Падение при ошибке»: ящики сорвутся, только если ошибётесь.'
+        : 'Башня слушает. Чтобы идти, нужно отвечать точно.',
+      2400
+    );
     this._markUiDirty(true);
     this._syncRenderer(performance.now());
 
@@ -399,6 +404,7 @@ class Game {
     this.runName = settings.runName || 'Безымянный спуск';
     this.langLevel = settings.langLevel || DEFAULT_CEFR_LEVEL;
     this.lexicalTopic = settings.lexicalTopic || null;
+    this.gameMode = settings.gameMode === 'mistake' ? 'mistake' : 'ceiling';
     this.slotConfigs = (settings.slotConfigs || []).map((config) => ({
       slotDef: config.slotDef,
       grammarTopic: config.grammarTopic
@@ -604,10 +610,14 @@ class Game {
     this._updateLookFreeze(now, deltaMs);
     this._updateQuake(now);
     this._updateBoxes(now, deltaSeconds);
-    this._updateRandomBoxFalls(now);
+    if (this.gameMode !== 'mistake') {
+      this._updateRandomBoxFalls(now);
+    }
 
     if (this.state !== 'lost' && this.state !== 'won') {
-      this._updateMonster(now);
+      if (this.gameMode !== 'mistake') {
+        this._updateMonster(now);
+      }
       this._updatePlannedQuake(now);
     }
 
@@ -813,6 +823,9 @@ class Game {
   }
 
   _getBoxDecayPerSecond(box, now) {
+    if (this.gameMode === 'mistake') {
+      return 0;
+    }
     const template = BOX_TYPES[box.type] || {};
     const fortified = box.fortifiedUntil > now;
     const pressuredByMonster = this._isMonsterPressuringBox(box);
@@ -1553,6 +1566,10 @@ class Game {
       this.slotCooldowns[this.currentSlotId] = performance.now() + slotConfig.slotDef.wrongCooldownMs;
     }
 
+    if (this.gameMode === 'mistake') {
+      this._dropRandomBoxes(1, 'random');
+    }
+
     const correctAnswer = question.options.options[question.options.correctIndex];
     this._showFeedback(false, `Неверно. Правильный ответ: ${correctAnswer}`);
     this._clearTransitionTimeout();
@@ -1977,8 +1994,10 @@ class Game {
 
     if (reason === 'box' && box) {
       this.deathInfo = {
-        title: 'НЕ УГЛЯДЕЛИ СВЕРХУ',
-        message: `Сверху сорвался ${BOX_TYPES[box.type].label.toLowerCase()} ящик. Вы стояли на клетке ${box.x + 1}:${box.y + 1}.`
+        title: this.gameMode === 'mistake' ? 'ОШИБКА ОБРУШИЛА ЯЩИК' : 'НЕ УГЛЯДЕЛИ СВЕРХУ',
+        message: this.gameMode === 'mistake'
+          ? `Из-за неверного ответа сверху сорвался ${BOX_TYPES[box.type].label.toLowerCase()} ящик и накрыл клетку ${box.x + 1}:${box.y + 1}.`
+          : `Сверху сорвался ${BOX_TYPES[box.type].label.toLowerCase()} ящик. Вы стояли на клетке ${box.x + 1}:${box.y + 1}.`
       };
     } else {
       this.deathInfo = {
@@ -2039,6 +2058,7 @@ class Game {
       playerName: this.playerName,
       runName: this.runName,
       langLevel: this.langLevel,
+      gameMode: this.gameMode,
       lexicalTopic: this.lexicalTopic,
       slotConfigs: this.slotConfigs,
       level
@@ -2233,7 +2253,12 @@ class Game {
     this.ui.floorMeta.textContent = `Этаж ${this.currentFloor} из ${FLOOR_CONFIGS.length}`;
     this.ui.runNameDisplay.textContent = this.runName;
     this.ui.lexicalTopicDisplay.textContent = `Тема: ${this.lexicalTopic}`;
-    this.ui.monsterDisplay.textContent = this._describeMonster(now);
+    if (this.gameMode === 'mistake') {
+      this.ui.monsterDisplay.classList.add('hidden');
+    } else {
+      this.ui.monsterDisplay.classList.remove('hidden');
+      this.ui.monsterDisplay.textContent = this._describeMonster(now);
+    }
     this.ui.movesDisplay.textContent = `Действия: ${this.movesLeft}`;
     this.ui.hatchDisplay.textContent = `Люки: ${this._getOpenedHatchCount()}/3`;
 

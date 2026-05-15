@@ -272,6 +272,56 @@ input {
   box-shadow: 0 12px 28px rgba(122, 77, 27, 0.22);
 }
 
+.mode-group {
+  max-width: 520px;
+  margin: 18px auto 18px;
+  text-align: center;
+}
+
+.mode-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.mode-btn {
+  flex: 1 1 220px;
+  min-width: 200px;
+  max-width: 260px;
+  padding: 14px 18px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(11, 14, 20, 0.84);
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+}
+
+.mode-btn .mode-title {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.95em;
+}
+
+.mode-btn .mode-desc {
+  font-size: 0.82em;
+  opacity: 0.75;
+  line-height: 1.35;
+}
+
+.mode-btn.active {
+  border-color: var(--line-strong);
+  background:
+    linear-gradient(180deg, rgba(82, 48, 21, 0.92), rgba(24, 16, 13, 0.94));
+  color: #ffe6b6;
+  box-shadow: 0 12px 28px rgba(122, 77, 27, 0.22);
+}
+
 .lexical-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

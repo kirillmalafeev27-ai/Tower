@@ -2,6 +2,9 @@ const PLAYER_NAME_KEY = 'turm_player_name';
 const RUN_NAME_KEY = 'turm_run_name';
 const TUTORIAL_SEEN_KEY = 'turm_tutorial_seen';
 const LANG_LEVEL_KEY = 'turm_lang_level';
+const GAME_MODE_KEY = 'turm_game_mode';
+const DEFAULT_GAME_MODE = 'ceiling';
+const VALID_GAME_MODES = ['ceiling', 'mistake'];
 
 const game = new Game();
 
@@ -40,6 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
     tutorialOverlay: document.getElementById('tutorial-overlay'),
     tutorialClose: document.getElementById('tutorial-close'),
     levelButtons: Array.from(document.querySelectorAll('.level-btn')),
+    modeButtons: Array.from(document.querySelectorAll('.mode-btn')),
     startButton: document.getElementById('start-btn')
   };
 
@@ -47,6 +51,10 @@ document.addEventListener('DOMContentLoaded', () => {
   let selectedGrammar = null;
   let selectedSlotIndex = null;
   let selectedLevel = safeStorageGet(LANG_LEVEL_KEY, DEFAULT_CEFR_LEVEL) || DEFAULT_CEFR_LEVEL;
+  let selectedGameMode = safeStorageGet(GAME_MODE_KEY, DEFAULT_GAME_MODE) || DEFAULT_GAME_MODE;
+  if (!VALID_GAME_MODES.includes(selectedGameMode)) {
+    selectedGameMode = DEFAULT_GAME_MODE;
+  }
   const slotAssignments = Array(BONUS_SLOTS.length).fill(null);
   let pendingTutorialCallback = null;
 
@@ -57,6 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
   renderSlots();
   renderGrammarPicker();
   renderLevelButtons();
+  renderModeButtons();
   updateStartButton();
   showStep(1);
 
@@ -90,6 +99,14 @@ document.addEventListener('DOMContentLoaded', () => {
     button.addEventListener('click', () => {
       selectedLevel = button.dataset.level || DEFAULT_CEFR_LEVEL;
       renderLevelButtons();
+    });
+  });
+
+  ui.modeButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      const mode = button.dataset.mode || DEFAULT_GAME_MODE;
+      selectedGameMode = VALID_GAME_MODES.includes(mode) ? mode : DEFAULT_GAME_MODE;
+      renderModeButtons();
     });
   });
 
@@ -312,6 +329,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  function renderModeButtons() {
+    ui.modeButtons.forEach((button) => {
+      button.classList.toggle('active', button.dataset.mode === selectedGameMode);
+    });
+  }
+
   function renderGrammarPicker() {
     ui.grammarPicker.innerHTML = '';
     const usedTopics = slotAssignments.filter(Boolean);
@@ -378,11 +401,13 @@ document.addEventListener('DOMContentLoaded', () => {
     safeStorageSet(PLAYER_NAME_KEY, playerName);
     safeStorageSet(RUN_NAME_KEY, runName);
     safeStorageSet(LANG_LEVEL_KEY, selectedLevel);
+    safeStorageSet(GAME_MODE_KEY, selectedGameMode);
 
     return {
       playerName,
       runName,
       langLevel: selectedLevel,
+      gameMode: selectedGameMode,
       lexicalTopic: selectedLexical,
       level: 1,
       slotConfigs: BONUS_SLOTS.map((slotDef, index) => ({

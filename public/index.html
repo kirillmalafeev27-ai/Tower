@@ -20,6 +20,19 @@
             <label for="player-name">Имя игрока</label>
             <input type="text" id="player-name" placeholder="Например, Кирилл" maxlength="24">
           </div>
+          <div class="option-group mode-group">
+            <label>Режим игры</label>
+            <div id="mode-buttons" class="mode-buttons">
+              <button type="button" class="mode-btn" data-mode="ceiling">
+                <span class="mode-title">Опасность сверху</span>
+                <span class="mode-desc">Стандартный режим: монстр и потолок давят постоянно.</span>
+              </button>
+              <button type="button" class="mode-btn" data-mode="mistake">
+                <span class="mode-title">Падение при ошибке</span>
+                <span class="mode-desc">Ящики падают только когда вы ошибаетесь в квизе.</span>
+              </button>
+            </div>
+          </div>
         </div>
         <button id="to-step2-btn" class="btn-primary">ДАЛЕЕ</button>
         <br>
