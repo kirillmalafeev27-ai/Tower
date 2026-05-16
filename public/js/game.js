@@ -228,6 +228,7 @@ class Game {
       movesDisplay: document.getElementById('moves-display'),
       hatchDisplay: document.getElementById('hatch-display'),
       skipMoveButton: document.getElementById('skip-move-btn'),
+      freezeDisplay: document.getElementById('freeze-display'),
       freezeLabel: document.getElementById('freeze-label'),
       freezeMeter: document.getElementById('freeze-meter'),
       quakeDisplay: document.getElementById('quake-display'),
@@ -794,6 +795,9 @@ class Game {
   }
 
   _canUseLookFreeze(now) {
+    if (this.gameMode === 'mistake') {
+      return false;
+    }
     return this.lookFreezeBudgetMs > 0 && (!this.lookFreezeCooldownUntil || this.lookFreezeCooldownUntil <= now);
   }
 
@@ -2252,12 +2256,17 @@ class Game {
     this.ui.movesDisplay.textContent = `Действия: ${this.movesLeft}`;
     this.ui.hatchDisplay.textContent = `Люки: ${this._getOpenedHatchCount()}/3`;
 
-    if (this.lookFreezeCooldownUntil > now) {
-      this.ui.freezeLabel.textContent = 'Взгляд перезаряжается';
-      this.ui.freezeMeter.textContent = `${formatSeconds(this.lookFreezeCooldownUntil - now)} c`;
+    if (this.gameMode === 'mistake') {
+      this.ui.freezeDisplay.classList.add('hidden');
     } else {
-      this.ui.freezeLabel.textContent = 'Взгляд';
-      this.ui.freezeMeter.textContent = `${formatSeconds(this.lookFreezeBudgetMs)} c`;
+      this.ui.freezeDisplay.classList.remove('hidden');
+      if (this.lookFreezeCooldownUntil > now) {
+        this.ui.freezeLabel.textContent = 'Взгляд перезаряжается';
+        this.ui.freezeMeter.textContent = `${formatSeconds(this.lookFreezeCooldownUntil - now)} c`;
+      } else {
+        this.ui.freezeLabel.textContent = 'Взгляд';
+        this.ui.freezeMeter.textContent = `${formatSeconds(this.lookFreezeBudgetMs)} c`;
+      }
     }
 
     this.ui.quakeDisplay.classList.toggle('hidden', this.quake.phase === 'idle');
